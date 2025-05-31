@@ -1,38 +1,63 @@
-
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { crecimientoService } from '@/lib/services/crecimientoService';
+import { loteService } from '@/lib/services/loteService';
 
-// Generate mock data for growth chart
-const generateGrowthData = () => {
-  const days = 35; // 35 days of growth
-  const data = [];
-  
-  // Ideal growth curve parameters (sigmoid-like)
-  const maxWeight = 2800; // max weight in grams
-  const growthRate = 0.15;
-  const midpoint = 20; // day of fastest growth
-  
-  for (let day = 1; day <= days; day++) {
-    // Calculate ideal weight using a sigmoid function
-    const idealWeight = maxWeight / (1 + Math.exp(-growthRate * (day - midpoint)));
-    
-    // Calculate actual weight with some variation
-    const variation = Math.random() * 0.1 - 0.05; // -5% to +5%
-    const actualWeight = idealWeight * (1 + variation);
-    
-    data.push({
-      day,
-      ideal: Math.round(idealWeight),
-      actual: Math.round(actualWeight),
-    });
-  }
-  
-  return data;
-};
+interface GrowthData {
+  day: number;
+  ideal: number;
+  actual: number;
+}
 
 const GrowthChart = () => {
-  const data = React.useMemo(() => generateGrowthData(), []);
+  const [data, setData] = useState<GrowthData[]>([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Get the current active lote
+        const lotes = await loteService.getAllLotes();
+        const activeLote = lotes.find(lote => lote.estado === 'activo');
+        if (!activeLote) return;
+
+        // Get growth records for the lote
+        const growthRecords = await crecimientoService.getCrecimientosByLote(activeLote.lote_id);
+
+        // Process growth data
+        const processedData = growthRecords.map(record => {
+          const recordDate = new Date(record.fecha);
+          const startDate = new Date(activeLote.fecha_ingreso);
+          const dayDiff = Math.floor((recordDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+          // Calculate ideal weight based on standard growth curve
+          // This is a simplified sigmoid function for ideal chicken growth
+          const maxWeight = 2800; // max weight in grams
+          const growthRate = 0.15;
+          const midpoint = 20; // day of fastest growth
+          const idealWeight = maxWeight / (1 + Math.exp(-growthRate * (dayDiff - midpoint)));
+
+          return {
+            day: dayDiff,
+            ideal: Math.round(idealWeight),
+            actual: Math.round(record.peso_promedio)
+          };
+        });
+
+        // Sort by day
+        processedData.sort((a, b) => a.day - b.day);
+
+        setData(processedData);
+      } catch (error) {
+        console.error('Error fetching growth data:', error);
+      }
+    };
+
+    fetchData();
+    // Update every 5 minutes
+    const intervalId = setInterval(fetchData, 5 * 60 * 1000);
+    return () => clearInterval(intervalId);
+  }, []);
   
   return (
     <Card>

@@ -1,88 +1,136 @@
-
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { PowerIcon, Droplets } from 'lucide-react';
+import { consumoService } from '@/lib/services/consumoService';
+import { loteService } from '@/lib/services/loteService';
+import { medicionAmbientalService } from '@/lib/services/medicionAmbientalService';
 
-// Generate hourly electricity data
-const generateHourlyElectricityData = () => {
-  const hours = 24;
-  const data = [];
-  
-  for (let hour = 0; hour < hours; hour++) {
-    // More electricity usage during daytime for lights, less at night
-    let factor = 1;
-    if (hour >= 6 && hour <= 19) {
-      factor = 1.5 + Math.sin((hour - 6) / 13 * Math.PI); // Peak during midday
-    }
-    
-    data.push({
-      hour: `${hour}:00`,
-      usage: Math.floor(Math.random() * 5 * factor) + 5, // 5-15 kWh per hour
-      temperature: Math.floor(Math.random() * 6) + 22, // 22-28°C
-    });
-  }
-  
-  return data;
-};
+interface ConsumptionData {
+  date: string;
+  electricity: number;
+  water: number;
+}
 
-// Generate daily consumption data
-const generateDailyConsumptionData = () => {
-  const days = 14; // 2 weeks
-  const data = [];
-  
-  for (let i = 0; i < days; i++) {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-    
-    const dayName = date.toLocaleDateString('es-ES', { weekday: 'short' });
-    const formattedDate = date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
-    
-    data.unshift({
-      date: `${dayName} ${formattedDate}`,
-      electricity: Math.floor(Math.random() * 50) + 170, // 170-220 kWh per day
-      water: Math.floor(Math.random() * 1000) + 3500, // 3500-4500L per day
-    });
-  }
-  
-  return data;
-};
+interface HourlyData {
+  hour: string;
+  usage: number;
+  temperature: number;
+}
 
-// Generate consumption breakdown data
-const generateConsumptionBreakdown = () => {
-  return [
-    { name: 'Ventilación', value: 42, color: '#3B82F6' },
-    { name: 'Iluminación', value: 18, color: '#F59E0B' },
-    { name: 'Alimentación', value: 23, color: '#10B981' },
-    { name: 'Refrigeración', value: 12, color: '#8B5CF6' },
-    { name: 'Otros', value: 5, color: '#6B7280' },
-  ];
-};
+interface ConsumptionBreakdown {
+  name: string;
+  value: number;
+  color: string;
+}
 
 const ConsumptionPage = () => {
-  const hourlyData = React.useMemo(() => generateHourlyElectricityData(), []);
-  const dailyData = React.useMemo(() => generateDailyConsumptionData(), []);
-  const electricBreakdown = React.useMemo(() => generateConsumptionBreakdown(), []);
-  
+  const [hourlyData, setHourlyData] = useState<HourlyData[]>([]);
+  const [dailyData, setDailyData] = useState<ConsumptionData[]>([]);
+  const [electricBreakdown, setElectricBreakdown] = useState<ConsumptionBreakdown[]>([]);
+  const [currentLote, setCurrentLote] = useState<any>(null);
+  const [birdCount, setBirdCount] = useState<number>(0);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Get the current active lote
+        const lotes = await loteService.getAllLotes();
+        const activeLote = lotes.find(lote => lote.estado === 'activo');
+        if (activeLote) {
+          setCurrentLote(activeLote);
+          setBirdCount(activeLote.cantidad_inicial);
+
+          // Get consumption data for the last 14 days
+          const consumptionRecords = await consumoService.getConsumosByLote(activeLote.lote_id);
+          
+          // Process daily consumption data
+          const dailyConsumption = consumptionRecords.reduce((acc: any, record: any) => {
+            const date = new Date(record.fecha);
+            const dayName = date.toLocaleDateString('es-ES', { weekday: 'short' });
+            const formattedDate = date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
+            const dateKey = `${dayName} ${formattedDate}`;
+            
+            if (!acc[dateKey]) {
+              acc[dateKey] = {
+                date: dateKey,
+                electricity: 0,
+                water: record.cantidad_agua
+              };
+            }
+            
+            acc[dateKey].water += record.cantidad_agua;
+            
+            return acc;
+          }, {});
+
+          setDailyData(Object.values(dailyConsumption));
+
+          // Get environmental measurements for temperature data
+          const today = new Date();
+          const measurements = await medicionAmbientalService.getMedicionesByLoteAndRango(
+            activeLote.lote_id,
+            new Date(today.setHours(0, 0, 0, 0)).toISOString(),
+            new Date(today.setHours(23, 59, 59, 999)).toISOString()
+          );
+
+          // Process hourly data
+          const hourlyMeasurements = measurements.reduce((acc: any, record: any) => {
+            const hour = new Date(record.fecha_hora).getHours();
+            const hourKey = `${hour}:00`;
+            
+            if (!acc[hourKey]) {
+              acc[hourKey] = {
+                hour: hourKey,
+                usage: 0,
+                temperature: record.temperatura
+              };
+            }
+            
+            // Assuming power usage correlates with temperature
+            acc[hourKey].usage = Math.round(record.temperatura * 0.5); // Simple correlation
+            
+            return acc;
+          }, {});
+
+          setHourlyData(Object.values(hourlyMeasurements));
+
+          // Set electric breakdown (this could be enhanced with real data if available)
+          setElectricBreakdown([
+            { name: 'Ventilación', value: 42, color: '#3B82F6' },
+            { name: 'Iluminación', value: 18, color: '#F59E0B' },
+            { name: 'Alimentación', value: 23, color: '#10B981' },
+            { name: 'Refrigeración', value: 12, color: '#8B5CF6' },
+            { name: 'Otros', value: 5, color: '#6B7280' },
+          ]);
+        }
+      } catch (error) {
+        console.error('Error fetching consumption data:', error);
+      }
+    };
+
+    fetchData();
+  }, []);
+
   // Calculate today's and average values
-  const todayElectricity = dailyData[dailyData.length - 1].electricity;
-  const todayWater = dailyData[dailyData.length - 1].water;
-  
+  const todayData = dailyData[dailyData.length - 1] || { electricity: 0, water: 0 };
+  const todayElectricity = todayData.electricity;
+  const todayWater = todayData.water;
+
   const avgElectricity = Math.round(
-    dailyData.reduce((sum, day) => sum + day.electricity, 0) / dailyData.length
+    dailyData.reduce((sum, day) => sum + day.electricity, 0) / (dailyData.length || 1)
   );
-  
+
   const avgWater = Math.round(
-    dailyData.reduce((sum, day) => sum + day.water, 0) / dailyData.length
+    dailyData.reduce((sum, day) => sum + day.water, 0) / (dailyData.length || 1)
   );
-  
+
   // Calculate per-bird metrics
-  const birdCount = 15000;
-  const electricityPerBird = (todayElectricity / birdCount * 1000).toFixed(1); // Wh per bird
-  const waterPerBird = (todayWater / birdCount).toFixed(2); // L per bird
-  
+  const electricityPerBird = birdCount ? ((todayElectricity / birdCount) * 1000).toFixed(1) : '0'; // Wh per bird
+  const waterPerBird = birdCount ? (todayWater / birdCount).toFixed(2) : '0';
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">

@@ -71,6 +71,12 @@ export const medicionAmbientalService = {
     fechaInicio: string, 
     fechaFin: string
   ) {
+    console.log('Consultando mediciones ambientales con parámetros:', {
+      loteId,
+      fechaInicio,
+      fechaFin
+    });
+    
     const { data, error } = await supabase
       .from('medicion_ambiental')
       .select('*')
@@ -79,7 +85,12 @@ export const medicionAmbientalService = {
       .lte('fecha_hora', fechaFin)
       .order('fecha_hora');
     
-    if (error) throw error;
+    if (error) {
+      console.error('Error al consultar mediciones ambientales:', error);
+      throw error;
+    }
+    
+    console.log('Mediciones encontradas:', data);
     return data as MedicionAmbiental[];
   },
 

@@ -1,69 +1,122 @@
-
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { ArrowDown } from 'lucide-react';
+import { mortalidadService } from '@/lib/services/mortalidadService';
+import { loteService } from '@/lib/services/loteService';
 
-// Generate mock mortality data for the last 15 days
-const generateDailyMortalityData = () => {
-  const days = 15;
-  const data = [];
-  
-  for (let i = 0; i < days; i++) {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-    
-    data.unshift({
-      date: date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
-      count: Math.floor(Math.random() * 18) + 5, // 5-22 mortality
-      percentage: ((Math.random() * 0.15) + 0.05).toFixed(2), // 0.05-0.20%
-    });
-  }
-  
-  return data;
-};
+interface MortalityData {
+  date: string;
+  count: number;
+  percentage: number;
+}
 
-// Generate zone-based mortality data
-const generateZoneMortality = () => {
-  const zones = ['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'C1', 'C2', 'C3'];
-  return zones.map(zone => ({
-    zone,
-    count: Math.floor(Math.random() * 25) + 1, // 1-25 deaths per zone
-  }));
-};
+interface ZoneMortality {
+  zone: string;
+  count: number;
+}
 
-// Generate cause breakdown data
-const generateCauseData = () => {
-  const causes = [
-    { name: 'Cardiorespiratorio', value: 32, color: '#EF4444' },
-    { name: 'Digestivo', value: 27, color: '#F59E0B' },
-    { name: 'Estrés por calor', value: 18, color: '#8B5CF6' },
-    { name: 'Traumatismo', value: 15, color: '#10B981' },
-    { name: 'Otras causas', value: 8, color: '#6B7280' },
-  ];
-  
-  return causes;
-};
+interface CauseData {
+  name: string;
+  value: number;
+  color: string;
+}
 
 const MortalityPage = () => {
-  const mortalityData = React.useMemo(() => generateDailyMortalityData(), []);
-  const zoneData = React.useMemo(() => generateZoneMortality(), []);
-  const causeData = React.useMemo(() => generateCauseData(), []);
-  
-  // Calculate totals
+  const [mortalityData, setMortalityData] = useState<MortalityData[]>([]);
+  const [zoneData, setZoneData] = useState<ZoneMortality[]>([]);
+  const [causeData, setCauseData] = useState<CauseData[]>([]);
+  const [currentLote, setCurrentLote] = useState<any>(null);
+  const [totalBirds, setTotalBirds] = useState<number>(0);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Get the current active lote
+        const lotes = await loteService.getAllLotes();
+        const activeLote = lotes.find(lote => lote.estado === 'activo');
+        if (activeLote) {
+          setCurrentLote(activeLote);
+          setTotalBirds(activeLote.cantidad_inicial);
+
+          // Get mortality data for the last 15 days
+          const mortalityRecords = await mortalidadService.getMortalidadesByLote(activeLote.lote_id);
+          
+          // Process daily mortality data
+          const dailyData = mortalityRecords.reduce((acc: any, record: any) => {
+            const date = new Date(record.fecha);
+            const dateStr = date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
+            
+            if (!acc[dateStr]) {
+              acc[dateStr] = {
+                date: dateStr,
+                count: 0,
+                percentage: 0
+              };
+            }
+            
+            acc[dateStr].count += record.cantidad;
+            acc[dateStr].percentage = Number(((acc[dateStr].count / activeLote.cantidad_inicial) * 100).toFixed(2));
+            
+            return acc;
+          }, {});
+
+          setMortalityData(Object.values(dailyData));
+
+          // Process mortality by cause
+          const causeBreakdown = mortalityRecords.reduce((acc: any, record: any) => {
+            if (!acc[record.causa]) {
+              acc[record.causa] = 0;
+            }
+            acc[record.causa] += record.cantidad;
+            return acc;
+          }, {});
+
+          const colors = ['#EF4444', '#F59E0B', '#8B5CF6', '#10B981', '#6B7280'];
+          setCauseData(Object.entries(causeBreakdown).map(([name, value], index) => ({
+            name,
+            value: value as number,
+            color: colors[index % colors.length]
+          })));
+
+          // For zone data, we'll need to process based on the observaciones field
+          // Assuming observaciones contains zone information
+          const zoneBreakdown = mortalityRecords.reduce((acc: any, record: any) => {
+            const zone = record.observaciones?.match(/Zona: ([A-C][1-3])/)?.[1] || 'N/A';
+            if (!acc[zone]) {
+              acc[zone] = 0;
+            }
+            acc[zone] += record.cantidad;
+            return acc;
+          }, {});
+
+          setZoneData(Object.entries(zoneBreakdown).map(([zone, count]) => ({
+            zone,
+            count: count as number
+          })));
+        }
+      } catch (error) {
+        console.error('Error fetching mortality data:', error);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Calculate totals from real data
   const totalMortality = mortalityData.reduce((sum, day) => sum + day.count, 0);
-  const avgDailyMortality = (totalMortality / mortalityData.length).toFixed(1);
-  const accumulatedPercentage = ((totalMortality / 15000) * 100).toFixed(2); // Assuming 15,000 birds
-  
+  const avgDailyMortality = mortalityData.length > 0 ? (totalMortality / mortalityData.length).toFixed(1) : '0';
+  const accumulatedPercentage = totalBirds > 0 ? ((totalMortality / totalBirds) * 100).toFixed(2) : '0';
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Mortandad</h1>
         <div className="flex items-center bg-white rounded-full px-3 py-1 shadow-sm">
           <ArrowDown className="h-5 w-5 text-farm-red mr-2" />
-          <span className="font-medium">Lote: A-2023-14</span>
+          <span className="font-medium">Lote: {currentLote?.codigo || 'N/A'}</span>
         </div>
       </div>
       

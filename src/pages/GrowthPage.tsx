@@ -1,88 +1,109 @@
-
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, AreaChart, Area } from 'recharts';
 import { Timer } from 'lucide-react';
+import { crecimientoService } from '@/lib/services/crecimientoService';
+import { loteService } from '@/lib/services/loteService';
 
-// Generate growth data by day
-const generateGrowthData = () => {
-  const days = 35; // 35 days of growth
-  const data = [];
-  
-  // Sigmoid growth function parameters
-  const maxWeight = 2800; // max weight in grams
-  const growthRate = 0.15;
-  const midpoint = 20; // day of fastest growth
-  
-  for (let day = 1; day <= days; day++) {
-    // Calculate ideal weight using sigmoid function
-    const idealWeight = maxWeight / (1 + Math.exp(-growthRate * (day - midpoint)));
-    
-    // Calculate actual weight with some variation
-    const variation = Math.random() * 0.1 - 0.05; // -5% to +5%
-    const actualWeight = idealWeight * (1 + variation);
-    
-    // Calculate daily gain
-    const prevIdealWeight = day > 1 
-      ? maxWeight / (1 + Math.exp(-growthRate * (day - 1 - midpoint)))
-      : 0;
-    const dailyGain = idealWeight - prevIdealWeight;
-    
-    data.push({
-      day,
-      ideal: Math.round(idealWeight),
-      actual: Math.round(actualWeight),
-      gain: Math.round(dailyGain),
-    });
-  }
-  
-  return data;
-};
+interface GrowthData {
+  day: number;
+  ideal: number;
+  actual: number;
+  gain: number;
+}
 
-// Generate weight distribution data
-const generateWeightDistribution = () => {
-  const distributions = [];
-  const mean = 2100; // mean weight in grams
-  const stdDev = 180; // standard deviation
-  
-  // Generate normal distribution
-  for (let weight = mean - 3 * stdDev; weight <= mean + 3 * stdDev; weight += stdDev / 2) {
-    const frequency = Math.exp(-0.5 * Math.pow((weight - mean) / stdDev, 2)) / (stdDev * Math.sqrt(2 * Math.PI));
-    distributions.push({
-      weight,
-      frequency: frequency * 4000, // Scale for visibility
-    });
-  }
-  
-  return distributions;
-};
+interface WeightDistribution {
+  weight: number;
+  frequency: number;
+}
 
 const GrowthPage = () => {
-  const growthData = React.useMemo(() => generateGrowthData(), []);
-  const distributionData = React.useMemo(() => generateWeightDistribution(), []);
-  
-  // Get current data points
-  const currentDay = 29; // Assuming we are at day 29
-  const currentData = growthData[currentDay - 1];
-  
-  // Calculate uniformity
-  const uniformity = 87.5; // Usually between 80-90%
-  
-  // Calculate weekly growth rate
-  const weeklyGrowthRate = (
-    (growthData[currentDay - 1].actual - growthData[currentDay - 8].actual) / 
-    growthData[currentDay - 8].actual * 100
-  ).toFixed(1);
-  
+  const [growthData, setGrowthData] = useState<GrowthData[]>([]);
+  const [weightDistribution, setWeightDistribution] = useState<WeightDistribution[]>([]);
+  const [currentLote, setCurrentLote] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Get the current active lote
+        const lotes = await loteService.getAllLotes();
+        const activeLote = lotes.find(lote => lote.estado === 'activo');
+        if (activeLote) {
+          setCurrentLote(activeLote);
+
+          // Get growth records for the lote
+          const growthRecords = await crecimientoService.getCrecimientosByLote(activeLote.lote_id);
+          
+          // Process growth data
+          const processedGrowthData = growthRecords.map((record: any) => {
+            const recordDate = new Date(record.fecha);
+            const startDate = new Date(activeLote.fecha_ingreso);
+            const dayDiff = Math.floor((recordDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+            // Calculate ideal weight based on standard growth curve
+            // This is a simplified sigmoid function for ideal chicken growth
+            const maxWeight = 2800; // max weight in grams
+            const growthRate = 0.15;
+            const midpoint = 20; // day of fastest growth
+            const idealWeight = maxWeight / (1 + Math.exp(-growthRate * (dayDiff - midpoint)));
+
+            // Calculate daily gain
+            const prevRecord = growthRecords.find((r: any) => {
+              const rDate = new Date(r.fecha);
+              const rDayDiff = Math.floor((rDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+              return rDayDiff === dayDiff - 1;
+            });
+
+            const dailyGain = prevRecord 
+              ? record.peso_promedio - prevRecord.peso_promedio
+              : record.peso_promedio; // For first day, gain equals weight
+
+            return {
+              day: dayDiff,
+              ideal: Math.round(idealWeight),
+              actual: Math.round(record.peso_promedio),
+              gain: Math.round(dailyGain),
+            };
+          });
+
+          setGrowthData(processedGrowthData.sort((a, b) => a.day - b.day));
+
+          // Calculate weight distribution based on uniformity data
+          if (growthRecords.length > 0) {
+            const latestRecord = growthRecords[growthRecords.length - 1];
+            const mean = latestRecord.peso_promedio;
+            const uniformity = latestRecord.uniformidad || 85; // Default to 85% if not specified
+            const stdDev = mean * (1 - uniformity / 100) / 2; // Estimate standard deviation from uniformity
+
+            // Generate normal distribution
+            const distribution = [];
+            for (let weight = mean - 3 * stdDev; weight <= mean + 3 * stdDev; weight += stdDev / 2) {
+              const frequency = Math.exp(-0.5 * Math.pow((weight - mean) / stdDev, 2)) / (stdDev * Math.sqrt(2 * Math.PI));
+              distribution.push({
+                weight,
+                frequency: frequency * 4000, // Scale for visibility
+              });
+            }
+            setWeightDistribution(distribution);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching growth data:', error);
+      }
+    };
+
+    fetchData();
+  }, []);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Peso y Crecimiento</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Crecimiento</h1>
         <div className="flex items-center bg-white rounded-full px-3 py-1 shadow-sm">
-          <Timer className="h-5 w-5 text-farm-green mr-2" />
-          <span className="font-medium">Lote: A-2023-14 (Día {currentDay})</span>
+          <Timer className="h-5 w-5 text-farm-teal mr-2" />
+          <span className="font-medium">Lote: {currentLote?.codigo || 'N/A'}</span>
         </div>
       </div>
       
@@ -94,10 +115,10 @@ const GrowthPage = () => {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-center">
-              <span className="text-3xl font-bold text-farm-green">{currentData.actual} g</span>
+              <span className="text-3xl font-bold text-farm-green">{growthData[growthData.length - 1]?.actual} g</span>
               <span className="text-sm text-muted-foreground mt-1">
-                {currentData.actual > currentData.ideal ? '+' : ''}
-                {currentData.actual - currentData.ideal} g vs estándar
+                {growthData[growthData.length - 1]?.actual > growthData[growthData.length - 1]?.ideal ? '+' : ''}
+                {growthData[growthData.length - 1]?.actual - growthData[growthData.length - 1]?.ideal} g vs estándar
               </span>
             </div>
           </CardContent>
@@ -123,8 +144,8 @@ const GrowthPage = () => {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-center">
-              <span className="text-3xl font-bold text-farm-purple">{uniformity}%</span>
-              <span className="text-sm text-muted-foreground mt-1">CV: 8.2%</span>
+              <span className="text-3xl font-bold text-farm-purple">{weightDistribution[Math.floor(weightDistribution.length / 2)]?.frequency.toFixed(2)}%</span>
+              <span className="text-sm text-muted-foreground mt-1">CV: {weightDistribution[Math.floor(weightDistribution.length / 2)]?.frequency.toFixed(2)}%</span>
             </div>
           </CardContent>
         </Card>
@@ -136,7 +157,7 @@ const GrowthPage = () => {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-center">
-              <span className="text-3xl font-bold text-farm-orange">{weeklyGrowthRate}%</span>
+              <span className="text-3xl font-bold text-farm-orange">{growthData[growthData.length - 1]?.gain > 0 ? '+' : ''}{growthData[growthData.length - 1]?.gain.toFixed(1)}% vs estándar</span>
               <span className="text-sm text-muted-foreground mt-1">últimos 7 días</span>
             </div>
           </CardContent>
@@ -204,12 +225,12 @@ const GrowthPage = () => {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Distribución de Pesos</CardTitle>
-            <CardDescription>Día {currentDay}</CardDescription>
+            <CardDescription>Día {growthData[growthData.length - 1]?.day}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={distributionData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                <AreaChart data={weightDistribution} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis 
                     dataKey="weight" 
@@ -246,9 +267,9 @@ const GrowthPage = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {growthData.slice(currentDay - 14, currentDay).map((day) => {
+                {growthData.slice(growthData.length - 14, growthData.length).map((day) => {
                   const date = new Date();
-                  date.setDate(date.getDate() - (currentDay - day.day));
+                  date.setDate(date.getDate() - (growthData.length - day.day));
                   const diffPercent = ((day.actual - day.ideal) / day.ideal * 100).toFixed(1);
                   // Convert diffPercent string to number for comparison
                   const diffPercentNum = parseFloat(diffPercent);
