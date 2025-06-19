@@ -6,12 +6,14 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { Timer } from 'lucide-react';
 import { crecimientoService } from '@/lib/services/crecimientoService';
 import { loteService } from '@/lib/services/loteService';
+import { polloService } from '@/lib/services/polloService';
 
 interface GrowthData {
   day: number;
   ideal: number;
   actual: number;
   gain: number;
+  date: string;
 }
 
 interface WeightDistribution {
@@ -41,15 +43,15 @@ const GrowthPage = () => {
             const recordDate = new Date(record.fecha);
             const startDate = new Date(activeLote.fecha_ingreso);
             const dayDiff = Math.floor((recordDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-
+  
             // Calculate ideal weight based on standard growth curve
             // This is a simplified sigmoid function for ideal chicken growth
-            const maxWeight = 2800; // max weight in grams
-            const growthRate = 0.15;
-            const midpoint = 20; // day of fastest growth
+  const maxWeight = 2800; // max weight in grams
+  const growthRate = 0.15;
+  const midpoint = 20; // day of fastest growth
             const idealWeight = maxWeight / (1 + Math.exp(-growthRate * (dayDiff - midpoint)));
-
-            // Calculate daily gain
+    
+    // Calculate daily gain
             const prevRecord = growthRecords.find((r: any) => {
               const rDate = new Date(r.fecha);
               const rDayDiff = Math.floor((rDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
@@ -62,6 +64,7 @@ const GrowthPage = () => {
 
             return {
               day: dayDiff,
+              date: recordDate.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }),
               ideal: Math.round(idealWeight),
               actual: Math.round(record.peso_promedio),
               gain: Math.round(dailyGain),
@@ -70,23 +73,30 @@ const GrowthPage = () => {
 
           setGrowthData(processedGrowthData.sort((a, b) => a.day - b.day));
 
-          // Calculate weight distribution based on uniformity data
-          if (growthRecords.length > 0) {
-            const latestRecord = growthRecords[growthRecords.length - 1];
-            const mean = latestRecord.peso_promedio;
-            const uniformity = latestRecord.uniformidad || 85; // Default to 85% if not specified
-            const stdDev = mean * (1 - uniformity / 100) / 2; // Estimate standard deviation from uniformity
+          // Obtener los pesos reales de los pollos del lote activo
+          const pollos = await polloService.getPollosByLote(activeLote.lote_id);
+          const pesos = pollos.map((p: any) => p.peso);
 
-            // Generate normal distribution
-            const distribution = [];
-            for (let weight = mean - 3 * stdDev; weight <= mean + 3 * stdDev; weight += stdDev / 2) {
-              const frequency = Math.exp(-0.5 * Math.pow((weight - mean) / stdDev, 2)) / (stdDev * Math.sqrt(2 * Math.PI));
-              distribution.push({
+          // Si hay datos de pesos, genera la curva suavizada (KDE)
+          if (pesos.length > 0) {
+            // KDE simple con ventana gaussiana
+            const minPeso = Math.min(...pesos);
+            const maxPeso = Math.max(...pesos);
+            const steps = 30;
+            const bandwidth = (maxPeso - minPeso) / 15 || 1; // Ajusta la suavidad
+            const kernel = (x: number) => (1 / Math.sqrt(2 * Math.PI)) * Math.exp(-0.5 * x * x);
+            const kde = (x: number) =>
+              pesos.reduce((sum, v) => sum + kernel((x - v) / bandwidth), 0) / (pesos.length * bandwidth);
+            const distribution = Array.from({ length: steps }, (_, i) => {
+              const weight = minPeso + ((maxPeso - minPeso) * i) / (steps - 1);
+              return {
                 weight,
-                frequency: frequency * 4000, // Scale for visibility
-              });
-            }
+                frequency: kde(weight) * pesos.length // Escala para que sea comparable
+              };
+            });
             setWeightDistribution(distribution);
+          } else {
+            setWeightDistribution([]);
           }
         }
       } catch (error) {
@@ -96,7 +106,7 @@ const GrowthPage = () => {
 
     fetchData();
   }, []);
-
+  
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -175,7 +185,7 @@ const GrowthPage = () => {
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={growthData} margin={{ top: 5, right: 30, left: 20, bottom: 25 }}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="day" label={{ value: 'Días', position: 'insideBottom', offset: -5 }} />
+                  <XAxis dataKey="date" label={{ value: 'Fecha', position: 'insideBottom', offset: -5 }} />
                   <YAxis label={{ value: 'Peso (g)', angle: -90, position: 'insideLeft' }} />
                   <Tooltip />
                   <Legend />
@@ -209,9 +219,9 @@ const GrowthPage = () => {
           <CardContent>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={growthData.filter(d => d.day > 0)} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                <BarChart data={growthData.slice(-7)} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="day" />
+                  <XAxis dataKey="date" label={{ value: 'Fecha', position: 'insideBottom', offset: -5 }} />
                   <YAxis />
                   <Tooltip />
                   <Legend />

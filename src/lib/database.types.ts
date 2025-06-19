@@ -110,33 +110,36 @@ export type Database = {
         Row: {
           consumo_id: number
           lote_id: number
-          fecha: string
+          fecha_hora: string
           cantidad_agua: number
           cantidad_alimento: number
           tipo_alimento: string
           desperdicio: number
+          kwh: number
           created_at: string
           updated_at: string
         }
         Insert: {
           consumo_id?: number
           lote_id: number
-          fecha: string
+          fecha_hora: string
           cantidad_agua: number
           cantidad_alimento: number
           tipo_alimento: string
           desperdicio?: number
+          kwh?: number
           created_at?: string
           updated_at?: string
         }
         Update: {
           consumo_id?: number
           lote_id?: number
-          fecha?: string
+          fecha_hora?: string
           cantidad_agua?: number
           cantidad_alimento?: number
           tipo_alimento?: string
           desperdicio?: number
+          kwh?: number
           created_at?: string
           updated_at?: string
         }

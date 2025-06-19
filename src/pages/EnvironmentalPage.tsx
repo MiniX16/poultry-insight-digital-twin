@@ -32,7 +32,7 @@ const EnvironmentalPage = () => {
           // Get last 24 hours of environmental data
           const endDate = new Date();
           const startDate = new Date(endDate.getTime() - 24 * 60 * 60 * 1000);
-          
+    
           const measurements = await medicionAmbientalService.getMedicionesByLoteAndRango(
             activeLote.lote_id,
             startDate.toISOString(),
@@ -92,7 +92,7 @@ const EnvironmentalPage = () => {
 
     return () => clearInterval(intervalId);
   }, []);
-
+  
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -101,7 +101,7 @@ const EnvironmentalPage = () => {
           <span className="font-medium">Lote: {currentLote?.codigo || 'N/A'}</span>
         </div>
       </div>
-
+      
       <Tabs defaultValue="temperature" className="space-y-4">
         <TabsList>
           <TabsTrigger value="temperature">Temperatura</TabsTrigger>
@@ -111,12 +111,12 @@ const EnvironmentalPage = () => {
         </TabsList>
 
         <TabsContent value="temperature">
-          <Card>
-            <CardHeader>
+      <Card>
+        <CardHeader>
               <CardTitle>Historial de Temperatura</CardTitle>
               <CardDescription>Últimas 24 horas</CardDescription>
-            </CardHeader>
-            <CardContent>
+        </CardHeader>
+        <CardContent>
               <div className="h-[400px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={temperatureData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
@@ -131,8 +131,8 @@ const EnvironmentalPage = () => {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-
+            </TabsContent>
+            
         <TabsContent value="humidity">
           <Card>
             <CardHeader>
@@ -154,8 +154,8 @@ const EnvironmentalPage = () => {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-
+            </TabsContent>
+            
         <TabsContent value="co2">
           <Card>
             <CardHeader>
@@ -177,8 +177,8 @@ const EnvironmentalPage = () => {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-
+            </TabsContent>
+            
         <TabsContent value="nh3">
           <Card>
             <CardHeader>
@@ -200,8 +200,8 @@ const EnvironmentalPage = () => {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+            </TabsContent>
+          </Tabs>
 
       <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
         <TemperatureMap />

@@ -48,7 +48,7 @@ const ConsumptionPage = () => {
           
           // Process daily consumption data
           const dailyConsumption = consumptionRecords.reduce((acc: any, record: any) => {
-            const date = new Date(record.fecha);
+            const date = new Date(record.fecha_hora);
             const dayName = date.toLocaleDateString('es-ES', { weekday: 'short' });
             const formattedDate = date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
             const dateKey = `${dayName} ${formattedDate}`;
@@ -113,24 +113,24 @@ const ConsumptionPage = () => {
 
     fetchData();
   }, []);
-
+  
   // Calculate today's and average values
   const todayData = dailyData[dailyData.length - 1] || { electricity: 0, water: 0 };
   const todayElectricity = todayData.electricity;
   const todayWater = todayData.water;
-
+  
   const avgElectricity = Math.round(
     dailyData.reduce((sum, day) => sum + day.electricity, 0) / (dailyData.length || 1)
   );
-
+  
   const avgWater = Math.round(
     dailyData.reduce((sum, day) => sum + day.water, 0) / (dailyData.length || 1)
   );
-
+  
   // Calculate per-bird metrics
   const electricityPerBird = birdCount ? ((todayElectricity / birdCount) * 1000).toFixed(1) : '0'; // Wh per bird
   const waterPerBird = birdCount ? (todayWater / birdCount).toFixed(2) : '0';
-
+  
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">

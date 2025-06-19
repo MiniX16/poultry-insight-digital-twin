@@ -33,40 +33,153 @@ const Dashboard = () => {
         console.log('Lote activo:', activeLote);
         if (!activeLote) return;
 
-        // Get latest environmental data
-        const { data: latestMeasurement, error: envError } = await supabase
+        // Get today's start and end dates
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        // Get all measurements for today
+        const { data: todayMeasurements, error: envError } = await supabase
           .from('medicion_ambiental')
-          .select('*')
+          .select('temperatura, fecha_hora')
           .eq('lote_id', activeLote.lote_id)
-          .order('fecha_hora', { ascending: false })
-          .limit(1)
-          .single();
+          .gte('fecha_hora', today.toISOString())
+          .lt('fecha_hora', tomorrow.toISOString())
+          .order('fecha_hora', { ascending: false });
 
         if (envError) {
           console.error('Error fetching environmental data:', envError);
           return;
         }
 
-        if (!latestMeasurement) return;
+        // Calculate average temperature for today
+        const temperatures = todayMeasurements?.map(m => m.temperatura) || [];
+        const avgTemp = temperatures.length > 0
+          ? temperatures.reduce((sum, temp) => sum + temp, 0) / temperatures.length
+          : 0;
 
-        // Get today's start
-        const today = new Date(latestMeasurement.fecha_hora);
-        today.setHours(0, 0, 0, 0);
-        
-        // Get yesterday's start
+        // Get yesterday's measurements for trend calculation
         const yesterday = new Date(today);
         yesterday.setDate(yesterday.getDate() - 1);
+        const { data: yesterdayMeasurements } = await supabase
+          .from('medicion_ambiental')
+          .select('temperatura, fecha_hora')
+          .eq('lote_id', activeLote.lote_id)
+          .gte('fecha_hora', yesterday.toISOString())
+          .lt('fecha_hora', today.toISOString())
+          .order('fecha_hora', { ascending: false });
 
-        // Get environmental measurements for the last 24 hours
-        const envMeasurements = await medicionAmbientalService.getMedicionesByLoteAndRango(
-          activeLote.lote_id,
-          yesterday.toISOString(),
-          today.toISOString()
-        );
+        // Calculate yesterday's average temperature
+        const yesterdayTemps = yesterdayMeasurements?.map(m => m.temperatura) || [];
+        const yesterdayAvg = yesterdayTemps.length > 0
+          ? yesterdayTemps.reduce((sum, temp) => sum + temp, 0) / yesterdayTemps.length
+          : avgTemp;
 
-        // Get latest consumption data
-        const consumptionData = await consumoService.getConsumosByLote(activeLote.lote_id);
-        console.log('Consumption data:', consumptionData);
+        // Calculate temperature trend
+        const tempTrend = yesterdayAvg !== 0
+          ? Number(((avgTemp - yesterdayAvg) / yesterdayAvg * 100).toFixed(2))
+          : 0;
+
+        // Get today's consumption data
+        const todayDate = today.toISOString().split('T')[0];
+        const yesterdayDate = yesterday.toISOString().split('T')[0];
+
+        // Get today's consumption data
+        const { data: todayConsumptions, error: todayError } = await supabase
+          .from('consumo')
+          .select('cantidad_agua, kwh, fecha_hora')
+          .eq('lote_id', activeLote.lote_id)
+          .gte('fecha_hora', today.toISOString())
+          .lt('fecha_hora', tomorrow.toISOString());
+
+        if (todayError) {
+          console.error('Error fetching today consumption:', todayError);
+        }
+        console.log('Consumos de hoy:', todayConsumptions);
+
+        // Get yesterday's consumption data
+        const { data: yesterdayConsumptions, error: yesterdayError } = await supabase
+          .from('consumo')
+          .select('cantidad_agua, kwh, fecha_hora')
+          .eq('lote_id', activeLote.lote_id)
+          .gte('fecha_hora', yesterday.toISOString())
+          .lt('fecha_hora', today.toISOString());
+
+        if (yesterdayError) {
+          console.error('Error fetching yesterday consumption:', yesterdayError);
+        }
+        console.log('Consumos de ayer:', yesterdayConsumptions);
+
+        // Calculate today's averages
+        const todayWater = todayConsumptions && todayConsumptions.length > 0
+          ? todayConsumptions.reduce((sum, record) => sum + record.cantidad_agua, 0) / todayConsumptions.length
+          : 0;
+        
+        const todayPower = todayConsumptions && todayConsumptions.length > 0
+          ? todayConsumptions.reduce((sum, record) => sum + record.kwh, 0) / todayConsumptions.length
+          : 0;
+
+        // Calculate yesterday's averages
+        const yesterdayWater = yesterdayConsumptions && yesterdayConsumptions.length > 0
+          ? yesterdayConsumptions.reduce((sum, record) => sum + record.cantidad_agua, 0) / yesterdayConsumptions.length
+          : todayWater; // Fallback to today's value if no yesterday data
+
+        const yesterdayPower = yesterdayConsumptions && yesterdayConsumptions.length > 0
+          ? yesterdayConsumptions.reduce((sum, record) => sum + record.kwh, 0) / yesterdayConsumptions.length
+          : todayPower; // Fallback to today's value if no yesterday data
+
+        console.log('Media agua hoy:', todayWater, 'Media agua ayer:', yesterdayWater);
+        console.log('Media energía hoy:', todayPower, 'Media energía ayer:', yesterdayPower);
+
+        // Calculate water consumption trend
+        const waterTrend = yesterdayWater !== 0
+          ? Number(((todayWater - yesterdayWater) / yesterdayWater * 100).toFixed(2))
+          : 0;
+
+        // Calculate power consumption trend (negative because lower consumption is better)
+        const powerTrend = yesterdayPower !== 0
+          ? -Number(((todayPower - yesterdayPower) / yesterdayPower * 100).toFixed(2))
+          : 0;
+
+        // Get today's weight data
+        const { data: todayWeight, error: weightError } = await supabase
+          .from('crecimiento')
+          .select('peso_promedio, fecha')
+          .eq('lote_id', activeLote.lote_id)
+          .order('fecha', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (weightError) {
+          console.error('Error fetching today weight:', weightError);
+        }
+        console.log('Peso más reciente:', todayWeight);
+
+        // Get previous weight data
+        const { data: yesterdayWeight, error: yesterdayWeightError } = await supabase
+          .from('crecimiento')
+          .select('peso_promedio, fecha')
+          .eq('lote_id', activeLote.lote_id)
+          .lt('fecha', todayWeight?.fecha || todayDate)
+          .order('fecha', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (yesterdayWeightError) {
+          console.error('Error fetching previous weight:', yesterdayWeightError);
+        }
+        console.log('Peso anterior:', yesterdayWeight);
+
+        // Get weight values
+        const latestWeight = todayWeight?.peso_promedio ?? 0;
+        const prevWeight = yesterdayWeight?.peso_promedio ?? latestWeight;
+        console.log('Peso hoy:', latestWeight, 'Peso ayer:', prevWeight);
+
+        // Calculate weight trend
+        const weightTrend = prevWeight !== 0
+          ? Number(((latestWeight - prevWeight) / prevWeight * 100).toFixed(2))
+          : 0;
 
         // Get mortality data
         const mortalityData = await mortalidadService.getMortalidadesByLote(activeLote.lote_id);
@@ -75,29 +188,6 @@ const Dashboard = () => {
         // Get growth data
         const growthData = await crecimientoService.getCrecimientosByLote(activeLote.lote_id);
         console.log('Growth data:', growthData);
-
-        // Process environmental data
-        const latestTemp = latestMeasurement.temperatura;
-        console.log('Latest temperature:', latestTemp);
-        const prevTemp = envMeasurements.length > 1 ? envMeasurements[envMeasurements.length - 2]?.temperatura || latestTemp : latestTemp;
-        const tempTrend = ((latestTemp - prevTemp) / prevTemp) * 100;
-
-        // Process water consumption
-        const todayWater = consumptionData.reduce((sum, record) => {
-          const recordDate = new Date(record.fecha);
-          if (recordDate.toDateString() === today.toDateString()) {
-            return sum + record.cantidad_agua;
-          }
-          return sum;
-        }, 0);
-        const yesterdayWater = consumptionData.reduce((sum, record) => {
-          const recordDate = new Date(record.fecha);
-          if (recordDate.toDateString() === yesterday.toDateString()) {
-            return sum + record.cantidad_agua;
-          }
-          return sum;
-        }, 0);
-        const waterTrend = yesterdayWater ? ((todayWater - yesterdayWater) / yesterdayWater) * 100 : 0;
 
         // Process mortality data
         const todayMortality = mortalityData.reduce((sum, record) => {
@@ -117,47 +207,21 @@ const Dashboard = () => {
         const mortalityTrend = yesterdayMortality ? ((todayMortality - yesterdayMortality) / yesterdayMortality) * 100 : 0;
 
         // Process growth data
-        const latestWeight = growthData[growthData.length - 1]?.peso_promedio || 0;
-        const prevWeight = growthData[growthData.length - 2]?.peso_promedio || latestWeight;
-        const weightTrend = ((latestWeight - prevWeight) / prevWeight) * 100;
-
-        // Process power consumption (assuming kWh is calculated from environmental readings)
-        const todayPower = envMeasurements.reduce((sum, record) => {
-          const recordDate = new Date(record.fecha_hora);
-          if (recordDate.toDateString() === today.toDateString()) {
-            // Simplified power calculation based on temperature
-            return sum + (record.temperatura * 0.5); // Example calculation
-          }
-          return sum;
-        }, 0);
-        const yesterdayPower = envMeasurements.reduce((sum, record) => {
-          const recordDate = new Date(record.fecha_hora);
-          if (recordDate.toDateString() === yesterday.toDateString()) {
-            return sum + (record.temperatura * 0.5);
-          }
-          return sum;
-        }, 0);
-        const powerTrend = yesterdayPower ? ((todayPower - yesterdayPower) / yesterdayPower) * 100 : 0;
-
-        // Calculate efficiency (example: survival rate * weight gain efficiency)
-        const totalMortality = mortalityData.reduce((sum, record) => sum + record.cantidad, 0);
-        const survivalRate = ((activeLote.cantidad_inicial - totalMortality) / activeLote.cantidad_inicial) * 100;
-        
-        // Calculate ideal weight using sigmoid function
+        const growthRate = 0.15;
         const dayDiff = Math.floor((today.getTime() - new Date(activeLote.fecha_ingreso).getTime()) / (1000 * 60 * 60 * 24)) + 1;
         const maxWeight = 2800; // max weight in grams
-        const growthRate = 0.15;
         const midpoint = 20; // day of fastest growth
         const idealWeight = maxWeight / (1 + Math.exp(-growthRate * (dayDiff - midpoint)));
         
         const weightEfficiency = (latestWeight / idealWeight) * 100;
+        const survivalRate = ((activeLote.cantidad_inicial - todayMortality) / activeLote.cantidad_inicial) * 100;
         const efficiency = (survivalRate * weightEfficiency) / 100;
         const prevEfficiency = 98; // You might want to store historical efficiency data
         const efficiencyTrend = ((efficiency - prevEfficiency) / prevEfficiency) * 100;
 
         setStats({
           temperature: { 
-            value: latestTemp.toFixed(1), 
+            value: avgTemp.toFixed(1), 
             trend: tempTrend 
           },
           water: { 
@@ -169,12 +233,12 @@ const Dashboard = () => {
             trend: -mortalityTrend // Negative because lower mortality is better
           },
           weight: { 
-            value: (latestWeight / 1000).toFixed(2), 
+            value: latestWeight.toFixed(2), // Ya está en kg, no necesitamos dividir por 1000
             trend: weightTrend 
           },
           power: { 
             value: Math.round(todayPower).toString(), 
-            trend: -powerTrend // Negative because lower power consumption is better
+            trend: -powerTrend // Now the trend is already negative when consumption increases
           },
           efficiency: { 
             value: efficiency.toFixed(1), 
@@ -187,8 +251,8 @@ const Dashboard = () => {
     };
 
     fetchData();
-    // Update every 5 minutes
-    const intervalId = setInterval(fetchData, 5 * 60 * 1000);
+    // Update every minute
+    const intervalId = setInterval(fetchData, 60 * 1000);
     return () => clearInterval(intervalId);
   }, []);
 

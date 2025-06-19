@@ -1,51 +1,26 @@
-
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { Layers3 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { loteService } from '@/lib/services/loteService';
+import { consumoService } from '@/lib/services/consumoService';
+import { alimentacionService } from '@/lib/services/alimentacionService';
+import { crecimientoService } from '@/lib/services/crecimientoService';
 
-// Generate mock feeding data
-const generateFeedingData = () => {
-  const days = 7; // Last 7 days
-  const data = [];
-  
-  for (let i = 0; i < days; i++) {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-    
-    data.unshift({
-      date: date.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' }),
-      consumption: Math.floor(Math.random() * 300) + 700, // 700-1000 kg
-      water: Math.floor(Math.random() * 1500) + 3500, // 3500-5000 liters
-      ratio: (Math.random() * 0.4 + 1.6).toFixed(2), // 1.6-2.0 ratio
-    });
-  }
-  
-  return data;
-};
+interface FeedingData {
+  date: string;
+  consumption: number;
+  water: number;
+  ratio: number;
+}
 
-// Generate feed consumption by hour
-const generateHourlyData = () => {
-  const hours = 24;
-  const data = [];
-  
-  for (let hour = 0; hour < hours; hour++) {
-    // Birds eat more during daylight hours
-    let factor = 1;
-    if (hour >= 6 && hour <= 19) {
-      factor = 2 + Math.sin((hour - 6) / 13 * Math.PI); // Peak at midday
-    }
-    
-    data.push({
-      hour: `${hour}:00`,
-      consumption: Math.floor(Math.random() * 20 * factor) + 10,
-    });
-  }
-  
-  return data;
-};
+interface HourlyData {
+  hour: string;
+  consumption: number;
+}
 
 // Feed composition data
 const feedComposition = [
@@ -59,16 +34,156 @@ const feedComposition = [
 ];
 
 const FeedingPage = () => {
-  const feedingData = React.useMemo(() => generateFeedingData(), []);
-  const hourlyData = React.useMemo(() => generateHourlyData(), []);
-  
+  const [feedingData, setFeedingData] = useState<FeedingData[]>([]);
+  const [hourlyData, setHourlyData] = useState<HourlyData[]>([]);
+  const [currentLote, setCurrentLote] = useState<any>(null);
+  const [stats, setStats] = useState({
+    dailyAvg: { consumption: 0, perBird: 0 },
+    conversionRate: 0,
+    inventory: { amount: 0, daysLeft: 0 },
+    waterRatio: 0
+  });
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Get the current active lote
+        const lotes = await loteService.getAllLotes();
+        const activeLote = lotes.find(lote => lote.estado === 'activo');
+        if (!activeLote) return;
+        setCurrentLote(activeLote);
+
+        // Get dates for the last 7 days
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - 7);
+
+        // Get feeding and consumption data
+        const { registros: alimentacionData } = await alimentacionService.getResumenAlimentacion(
+          activeLote.lote_id,
+          startDate.toISOString().split('T')[0],
+          endDate.toISOString().split('T')[0]
+        );
+
+        const { registros: consumoData } = await consumoService.getResumenConsumo(
+          activeLote.lote_id,
+          startDate.toISOString().split('T')[0],
+          endDate.toISOString().split('T')[0]
+        );
+
+        // Process daily data
+        const dailyData: FeedingData[] = [];
+        for (let i = 0; i < 7; i++) {
+          const date = new Date();
+          date.setDate(date.getDate() - i);
+          const dateStr = date.toISOString().split('T')[0];
+          
+          // Find all consumption records for this day and sum them up
+          const dayConsumos = consumoData.filter(c => {
+            const consumoDate = new Date(c.fecha_hora);
+            return consumoDate.toISOString().split('T')[0] === dateStr;
+          });
+          
+          const dayTotals = dayConsumos.reduce((acc, curr) => ({
+            cantidad_alimento: acc.cantidad_alimento + curr.cantidad_alimento,
+            cantidad_agua: acc.cantidad_agua + curr.cantidad_agua
+          }), { cantidad_alimento: 0, cantidad_agua: 0 });
+          
+          dailyData.unshift({
+            date: date.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' }),
+            consumption: dayTotals.cantidad_alimento,
+            water: dayTotals.cantidad_agua,
+            ratio: dayTotals.cantidad_alimento > 0 
+              ? Number((dayTotals.cantidad_agua / dayTotals.cantidad_alimento).toFixed(2)) 
+              : 0
+          });
+        }
+        setFeedingData(dailyData);
+
+        // Calculate daily averages
+        const totalConsumption = dailyData.reduce((sum, day) => sum + day.consumption, 0);
+        const avgConsumption = totalConsumption / dailyData.length;
+        const perBirdConsumption = avgConsumption / activeLote.cantidad_inicial * 1000; // en gramos
+        const perBirdConsumptionKg = perBirdConsumption / 1000; // convertir a kg
+
+        console.log('Consumo promedio diario:', avgConsumption, 'kg');
+        console.log('Consumo por ave:', perBirdConsumption, 'g/ave');
+        console.log('Consumo por ave en kg:', perBirdConsumptionKg, 'kg/ave');
+        console.log('Cantidad de aves:', activeLote.cantidad_inicial);
+
+        // Get yesterday's date
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+        // Get yesterday's growth data
+        const yesterdayGrowth = await crecimientoService.getCrecimientosByLote(activeLote.lote_id);
+        const yesterdayData = yesterdayGrowth.find(g => g.fecha === yesterdayStr);
+        console.log('Datos de crecimiento de ayer:', yesterdayData);
+
+        // Calculate feed conversion rate using average consumption per bird
+        const feedConversionRate = yesterdayData
+          ? perBirdConsumptionKg / yesterdayData.ganancia_diaria
+          : 0;
+
+        console.log('Tasa de conversión alimenticia:', feedConversionRate);
+
+        // Get today's feeding pattern
+        const todayFeedings = alimentacionData.filter(
+          a => a.fecha === new Date().toISOString().split('T')[0]
+        );
+
+        // Process hourly data
+        const hourlyConsumption: HourlyData[] = Array.from({ length: 24 }, (_, hour) => {
+          const hourStr = `${hour.toString().padStart(2, '0')}:00`;
+          const hourFeedings = todayFeedings.filter(f => {
+            const feedingHour = new Date(f.hora_suministro).getHours();
+            return feedingHour === hour;
+          });
+          
+          return {
+            hour: hourStr,
+            consumption: hourFeedings.reduce((sum, f) => sum + f.cantidad_suministrada, 0)
+          };
+        });
+        setHourlyData(hourlyConsumption);
+
+        // Calculate water ratio
+        const avgWater = dailyData.reduce((sum, day) => sum + day.water, 0) / dailyData.length;
+        const waterRatio = avgConsumption > 0 ? Number((avgWater / avgConsumption).toFixed(2)) : 0;
+
+        // Set stats
+        setStats({
+          dailyAvg: {
+            consumption: Math.round(avgConsumption),
+            perBird: Math.round(perBirdConsumption)
+          },
+          conversionRate: Number(feedConversionRate.toFixed(2)),
+          inventory: {
+            amount: 6.4, // This should come from inventory table
+            daysLeft: 7.8 // This should be calculated based on consumption rate
+          },
+          waterRatio
+        });
+
+      } catch (error) {
+        console.error('Error fetching feeding data:', error);
+      }
+    };
+
+    fetchData();
+    // Update every 5 minutes
+    const intervalId = setInterval(fetchData, 5 * 60 * 1000);
+    return () => clearInterval(intervalId);
+  }, []);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Alimentación</h1>
         <div className="flex items-center bg-white rounded-full px-3 py-1 shadow-sm">
           <Layers3 className="h-5 w-5 text-farm-teal mr-2" />
-          <span className="font-medium">Lote: A-2023-14</span>
+          <span className="font-medium">Lote: {currentLote?.codigo || 'N/A'}</span>
         </div>
       </div>
       
@@ -80,8 +195,8 @@ const FeedingPage = () => {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-center">
-              <span className="text-3xl font-bold text-farm-teal">842 kg</span>
-              <span className="text-sm text-muted-foreground mt-1">121 g/ave</span>
+              <span className="text-3xl font-bold text-farm-teal">{stats.dailyAvg.consumption} kg</span>
+              <span className="text-sm text-muted-foreground mt-1">{stats.dailyAvg.perBird} g/ave</span>
             </div>
           </CardContent>
         </Card>
@@ -93,7 +208,7 @@ const FeedingPage = () => {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-center">
-              <span className="text-3xl font-bold text-farm-blue">1.82</span>
+              <span className="text-3xl font-bold text-farm-blue">{stats.conversionRate.toFixed(2)}</span>
               <span className="text-sm text-muted-foreground mt-1">kg alimento / kg ganancia</span>
             </div>
           </CardContent>
@@ -106,8 +221,8 @@ const FeedingPage = () => {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-center">
-              <span className="text-3xl font-bold text-farm-orange">6.4 ton</span>
-              <span className="text-sm text-muted-foreground mt-1">7.8 días restantes</span>
+              <span className="text-3xl font-bold text-farm-orange">{stats.inventory.amount.toFixed(1)} ton</span>
+              <span className="text-sm text-muted-foreground mt-1">{stats.inventory.daysLeft.toFixed(1)} días restantes</span>
             </div>
           </CardContent>
         </Card>
@@ -119,7 +234,7 @@ const FeedingPage = () => {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-center">
-              <span className="text-3xl font-bold text-farm-green">1.92</span>
+              <span className="text-3xl font-bold text-farm-green">{stats.waterRatio.toFixed(2)}</span>
               <span className="text-sm text-muted-foreground mt-1">litros/kg alimento</span>
             </div>
           </CardContent>

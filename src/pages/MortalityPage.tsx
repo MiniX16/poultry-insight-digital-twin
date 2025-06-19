@@ -43,7 +43,7 @@ const MortalityPage = () => {
 
           // Get mortality data for the last 15 days
           const mortalityRecords = await mortalidadService.getMortalidadesByLote(activeLote.lote_id);
-          
+
           // Process daily mortality data
           const dailyData = mortalityRecords.reduce((acc: any, record: any) => {
             const date = new Date(record.fecha);
@@ -104,12 +104,12 @@ const MortalityPage = () => {
 
     fetchData();
   }, []);
-
+  
   // Calculate totals from real data
   const totalMortality = mortalityData.reduce((sum, day) => sum + day.count, 0);
   const avgDailyMortality = mortalityData.length > 0 ? (totalMortality / mortalityData.length).toFixed(1) : '0';
   const accumulatedPercentage = totalBirds > 0 ? ((totalMortality / totalBirds) * 100).toFixed(2) : '0';
-
+  
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">

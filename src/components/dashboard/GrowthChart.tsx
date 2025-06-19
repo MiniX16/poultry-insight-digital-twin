@@ -6,6 +6,7 @@ import { loteService } from '@/lib/services/loteService';
 
 interface GrowthData {
   day: number;
+  date: string;
   ideal: number;
   actual: number;
 }
@@ -29,16 +30,17 @@ const GrowthChart = () => {
           const recordDate = new Date(record.fecha);
           const startDate = new Date(activeLote.fecha_ingreso);
           const dayDiff = Math.floor((recordDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-
+  
           // Calculate ideal weight based on standard growth curve
           // This is a simplified sigmoid function for ideal chicken growth
-          const maxWeight = 2800; // max weight in grams
-          const growthRate = 0.15;
-          const midpoint = 20; // day of fastest growth
+  const maxWeight = 2800; // max weight in grams
+  const growthRate = 0.15;
+  const midpoint = 20; // day of fastest growth
           const idealWeight = maxWeight / (1 + Math.exp(-growthRate * (dayDiff - midpoint)));
 
           return {
             day: dayDiff,
+            date: recordDate.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }),
             ideal: Math.round(idealWeight),
             actual: Math.round(record.peso_promedio)
           };
@@ -71,7 +73,7 @@ const GrowthChart = () => {
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="day" label={{ value: 'Días', position: 'insideBottom', offset: -5 }} />
+              <XAxis dataKey="date" label={{ value: 'Fecha', position: 'insideBottom', offset: -5 }} />
               <YAxis label={{ value: 'Peso (g)', angle: -90, position: 'insideLeft' }} />
               <Tooltip />
               <Legend />
