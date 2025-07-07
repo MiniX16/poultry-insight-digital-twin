@@ -47,48 +47,50 @@ const FeedingPage = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Get the current active lote
+        // Get todos los lotes
         const lotes = await loteService.getAllLotes();
-        const activeLote = lotes.find(lote => lote.estado === 'activo');
-        if (!activeLote) return;
-        setCurrentLote(activeLote);
+        if (lotes.length === 0) return;
+        setCurrentLote(lotes[0]);
+      } catch (error) {
+        console.error('Error fetching feeding data:', error);
+      }
+    };
+    fetchData();
+  }, []);
 
+  useEffect(() => {
+    const fetchFeedingData = async () => {
+      if (!currentLote) return;
+      try {
         // Get dates for the last 7 days
         const endDate = new Date();
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - 7);
-
         // Get feeding and consumption data
         const { registros: alimentacionData } = await alimentacionService.getResumenAlimentacion(
-          activeLote.lote_id,
+          currentLote.lote_id,
           startDate.toISOString().split('T')[0],
           endDate.toISOString().split('T')[0]
         );
-
         const { registros: consumoData } = await consumoService.getResumenConsumo(
-          activeLote.lote_id,
+          currentLote.lote_id,
           startDate.toISOString().split('T')[0],
           endDate.toISOString().split('T')[0]
         );
-
         // Process daily data
         const dailyData: FeedingData[] = [];
         for (let i = 0; i < 7; i++) {
           const date = new Date();
           date.setDate(date.getDate() - i);
           const dateStr = date.toISOString().split('T')[0];
-          
-          // Find all consumption records for this day and sum them up
           const dayConsumos = consumoData.filter(c => {
             const consumoDate = new Date(c.fecha_hora);
             return consumoDate.toISOString().split('T')[0] === dateStr;
           });
-          
           const dayTotals = dayConsumos.reduce((acc, curr) => ({
             cantidad_alimento: acc.cantidad_alimento + curr.cantidad_alimento,
             cantidad_agua: acc.cantidad_agua + curr.cantidad_agua
           }), { cantidad_alimento: 0, cantidad_agua: 0 });
-          
           dailyData.unshift({
             date: date.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' }),
             consumption: dayTotals.cantidad_alimento,
@@ -99,40 +101,26 @@ const FeedingPage = () => {
           });
         }
         setFeedingData(dailyData);
-
         // Calculate daily averages
         const totalConsumption = dailyData.reduce((sum, day) => sum + day.consumption, 0);
         const avgConsumption = totalConsumption / dailyData.length;
-        const perBirdConsumption = avgConsumption / activeLote.cantidad_inicial * 1000; // en gramos
+        const perBirdConsumption = avgConsumption / currentLote.cantidad_inicial * 1000; // en gramos
         const perBirdConsumptionKg = perBirdConsumption / 1000; // convertir a kg
-
-        console.log('Consumo promedio diario:', avgConsumption, 'kg');
-        console.log('Consumo por ave:', perBirdConsumption, 'g/ave');
-        console.log('Consumo por ave en kg:', perBirdConsumptionKg, 'kg/ave');
-        console.log('Cantidad de aves:', activeLote.cantidad_inicial);
-
         // Get yesterday's date
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
         const yesterdayStr = yesterday.toISOString().split('T')[0];
-
         // Get yesterday's growth data
-        const yesterdayGrowth = await crecimientoService.getCrecimientosByLote(activeLote.lote_id);
+        const yesterdayGrowth = await crecimientoService.getCrecimientosByLote(currentLote.lote_id);
         const yesterdayData = yesterdayGrowth.find(g => g.fecha === yesterdayStr);
-        console.log('Datos de crecimiento de ayer:', yesterdayData);
-
         // Calculate feed conversion rate using average consumption per bird
         const feedConversionRate = yesterdayData
           ? perBirdConsumptionKg / yesterdayData.ganancia_diaria
           : 0;
-
-        console.log('Tasa de conversión alimenticia:', feedConversionRate);
-
         // Get today's feeding pattern
         const todayFeedings = alimentacionData.filter(
           a => a.fecha === new Date().toISOString().split('T')[0]
         );
-
         // Process hourly data
         const hourlyConsumption: HourlyData[] = Array.from({ length: 24 }, (_, hour) => {
           const hourStr = `${hour.toString().padStart(2, '0')}:00`;
@@ -140,18 +128,15 @@ const FeedingPage = () => {
             const feedingHour = new Date(f.hora_suministro).getHours();
             return feedingHour === hour;
           });
-          
           return {
             hour: hourStr,
             consumption: hourFeedings.reduce((sum, f) => sum + f.cantidad_suministrada, 0)
           };
         });
         setHourlyData(hourlyConsumption);
-
         // Calculate water ratio
         const avgWater = dailyData.reduce((sum, day) => sum + day.water, 0) / dailyData.length;
         const waterRatio = avgConsumption > 0 ? Number((avgWater / avgConsumption).toFixed(2)) : 0;
-
         // Set stats
         setStats({
           dailyAvg: {
@@ -165,17 +150,12 @@ const FeedingPage = () => {
           },
           waterRatio
         });
-
       } catch (error) {
         console.error('Error fetching feeding data:', error);
       }
     };
-
-    fetchData();
-    // Update every 5 minutes
-    const intervalId = setInterval(fetchData, 5 * 60 * 1000);
-    return () => clearInterval(intervalId);
-  }, []);
+    fetchFeedingData();
+  }, [currentLote]);
 
   return (
     <div className="space-y-6">

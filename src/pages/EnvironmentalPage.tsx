@@ -23,75 +23,69 @@ const EnvironmentalPage = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Get the current active lote
+        // Get todos los lotes
         const lotes = await loteService.getAllLotes();
-        const activeLote = lotes.find(lote => lote.estado === 'activo');
-        if (activeLote) {
-          setCurrentLote(activeLote);
-
-          // Get last 24 hours of environmental data
-          const endDate = new Date();
-          const startDate = new Date(endDate.getTime() - 24 * 60 * 60 * 1000);
-    
-          const measurements = await medicionAmbientalService.getMedicionesByLoteAndRango(
-            activeLote.lote_id,
-            startDate.toISOString(),
-            endDate.toISOString()
-          );
-
-          // Process the data for each environmental factor
-          const processedData = measurements.reduce((acc: any, record: any) => {
-            const time = new Date(record.fecha_hora).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-            
-            if (!acc.temperature) acc.temperature = [];
-            if (!acc.humidity) acc.humidity = [];
-            if (!acc.co2) acc.co2 = [];
-            if (!acc.nh3) acc.nh3 = [];
-
-            acc.temperature.push({
-              time,
-              value: Number(record.temperatura.toFixed(1))
-            });
-
-            acc.humidity.push({
-              time,
-              value: Number(record.humedad.toFixed(1))
-            });
-
-            if (record.co2) {
-              acc.co2.push({
-                time,
-                value: Math.round(record.co2)
-              });
-            }
-
-            if (record.amoniaco) {
-              acc.nh3.push({
-                time,
-                value: Math.round(record.amoniaco)
-              });
-            }
-
-            return acc;
-          }, {});
-
-          setTemperatureData(processedData.temperature || []);
-          setHumidityData(processedData.humidity || []);
-          setCo2Data(processedData.co2 || []);
-          setNh3Data(processedData.nh3 || []);
+        if (lotes.length > 0) {
+          setCurrentLote(lotes[0]);
         }
       } catch (error) {
         console.error('Error fetching environmental data:', error);
       }
     };
-
     fetchData();
-
-    // Set up polling every 5 minutes
-    const intervalId = setInterval(fetchData, 5 * 60 * 1000);
-
-    return () => clearInterval(intervalId);
   }, []);
+
+  useEffect(() => {
+    const fetchEnvData = async () => {
+      if (!currentLote) return;
+      try {
+        // Get last 24 hours of environmental data
+        const endDate = new Date();
+        const startDate = new Date(endDate.getTime() - 24 * 60 * 60 * 1000);
+        const measurements = await medicionAmbientalService.getMedicionesByLoteAndRango(
+          currentLote.lote_id,
+          startDate.toISOString(),
+          endDate.toISOString()
+        );
+        // Process the data for each environmental factor
+        const processedData = measurements.reduce((acc: any, record: any) => {
+          const time = new Date(record.fecha_hora).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+          if (!acc.temperature) acc.temperature = [];
+          if (!acc.humidity) acc.humidity = [];
+          if (!acc.co2) acc.co2 = [];
+          if (!acc.nh3) acc.nh3 = [];
+          acc.temperature.push({
+            time,
+            value: Number(record.temperatura.toFixed(1))
+          });
+          acc.humidity.push({
+            time,
+            value: Number(record.humedad.toFixed(1))
+          });
+          if (record.co2) {
+            acc.co2.push({
+              time,
+              value: Math.round(record.co2)
+            });
+          }
+          if (record.amoniaco) {
+            acc.nh3.push({
+              time,
+              value: Math.round(record.amoniaco)
+            });
+          }
+          return acc;
+        }, {});
+        setTemperatureData(processedData.temperature || []);
+        setHumidityData(processedData.humidity || []);
+        setCo2Data(processedData.co2 || []);
+        setNh3Data(processedData.nh3 || []);
+      } catch (error) {
+        console.error('Error fetching environmental data:', error);
+      }
+    };
+    fetchEnvData();
+  }, [currentLote]);
   
   return (
     <div className="space-y-6">

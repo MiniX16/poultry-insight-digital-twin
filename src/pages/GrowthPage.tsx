@@ -29,19 +29,18 @@ const GrowthPage = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Get the current active lote
+        // Get todos los lotes
         const lotes = await loteService.getAllLotes();
-        const activeLote = lotes.find(lote => lote.estado === 'activo');
-        if (activeLote) {
-          setCurrentLote(activeLote);
+        if (lotes.length > 0) {
+          setCurrentLote(lotes[0]);
 
-          // Get growth records for the lote
-          const growthRecords = await crecimientoService.getCrecimientosByLote(activeLote.lote_id);
+          // Get growth records for el primer lote
+          const growthRecords = await crecimientoService.getCrecimientosByLote(lotes[0].lote_id);
           
           // Process growth data
           const processedGrowthData = growthRecords.map((record: any) => {
             const recordDate = new Date(record.fecha);
-            const startDate = new Date(activeLote.fecha_ingreso);
+            const startDate = new Date(lotes[0].fecha_ingreso);
             const dayDiff = Math.floor((recordDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
   
             // Calculate ideal weight based on standard growth curve
@@ -73,8 +72,8 @@ const GrowthPage = () => {
 
           setGrowthData(processedGrowthData.sort((a, b) => a.day - b.day));
 
-          // Obtener los pesos reales de los pollos del lote activo
-          const pollos = await polloService.getPollosByLote(activeLote.lote_id);
+          // Obtener los pesos reales de los pollos del lote
+          const pollos = await polloService.getPollosByLote(lotes[0].lote_id);
           const pesos = pollos.map((p: any) => p.peso);
 
           // Si hay datos de pesos, genera la curva suavizada (KDE)

@@ -36,83 +36,77 @@ const ConsumptionPage = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Get the current active lote
+        // Get todos los lotes
         const lotes = await loteService.getAllLotes();
-        const activeLote = lotes.find(lote => lote.estado === 'activo');
-        if (activeLote) {
-          setCurrentLote(activeLote);
-          setBirdCount(activeLote.cantidad_inicial);
-
-          // Get consumption data for the last 14 days
-          const consumptionRecords = await consumoService.getConsumosByLote(activeLote.lote_id);
-          
-          // Process daily consumption data
-          const dailyConsumption = consumptionRecords.reduce((acc: any, record: any) => {
-            const date = new Date(record.fecha_hora);
-            const dayName = date.toLocaleDateString('es-ES', { weekday: 'short' });
-            const formattedDate = date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
-            const dateKey = `${dayName} ${formattedDate}`;
-            
-            if (!acc[dateKey]) {
-              acc[dateKey] = {
-                date: dateKey,
-                electricity: 0,
-                water: record.cantidad_agua
-              };
-            }
-            
-            acc[dateKey].water += record.cantidad_agua;
-            
-            return acc;
-          }, {});
-
-          setDailyData(Object.values(dailyConsumption));
-
-          // Get environmental measurements for temperature data
-          const today = new Date();
-          const measurements = await medicionAmbientalService.getMedicionesByLoteAndRango(
-            activeLote.lote_id,
-            new Date(today.setHours(0, 0, 0, 0)).toISOString(),
-            new Date(today.setHours(23, 59, 59, 999)).toISOString()
-          );
-
-          // Process hourly data
-          const hourlyMeasurements = measurements.reduce((acc: any, record: any) => {
-            const hour = new Date(record.fecha_hora).getHours();
-            const hourKey = `${hour}:00`;
-            
-            if (!acc[hourKey]) {
-              acc[hourKey] = {
-                hour: hourKey,
-                usage: 0,
-                temperature: record.temperatura
-              };
-            }
-            
-            // Assuming power usage correlates with temperature
-            acc[hourKey].usage = Math.round(record.temperatura * 0.5); // Simple correlation
-            
-            return acc;
-          }, {});
-
-          setHourlyData(Object.values(hourlyMeasurements));
-
-          // Set electric breakdown (this could be enhanced with real data if available)
-          setElectricBreakdown([
-            { name: 'Ventilación', value: 42, color: '#3B82F6' },
-            { name: 'Iluminación', value: 18, color: '#F59E0B' },
-            { name: 'Alimentación', value: 23, color: '#10B981' },
-            { name: 'Refrigeración', value: 12, color: '#8B5CF6' },
-            { name: 'Otros', value: 5, color: '#6B7280' },
-          ]);
+        if (lotes.length > 0) {
+          setCurrentLote(lotes[0]);
+          setBirdCount(lotes[0].cantidad_inicial);
         }
       } catch (error) {
         console.error('Error fetching consumption data:', error);
       }
     };
-
     fetchData();
   }, []);
+
+  useEffect(() => {
+    const fetchConsumptionData = async () => {
+      if (!currentLote) return;
+      try {
+        // Get consumption data for el lote seleccionado
+        const consumptionRecords = await consumoService.getConsumosByLote(currentLote.lote_id);
+        // Process daily consumption data
+        const dailyConsumption = consumptionRecords.reduce((acc: any, record: any) => {
+          const date = new Date(record.fecha_hora);
+          const dayName = date.toLocaleDateString('es-ES', { weekday: 'short' });
+          const formattedDate = date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
+          const dateKey = `${dayName} ${formattedDate}`;
+          if (!acc[dateKey]) {
+            acc[dateKey] = {
+              date: dateKey,
+              electricity: 0,
+              water: record.cantidad_agua
+            };
+          }
+          acc[dateKey].water += record.cantidad_agua;
+          return acc;
+        }, {});
+        setDailyData(Object.values(dailyConsumption));
+        // Get environmental measurements for temperature data
+        const today = new Date();
+        const measurements = await medicionAmbientalService.getMedicionesByLoteAndRango(
+          currentLote.lote_id,
+          new Date(today.setHours(0, 0, 0, 0)).toISOString(),
+          new Date(today.setHours(23, 59, 59, 999)).toISOString()
+        );
+        // Process hourly data
+        const hourlyMeasurements = measurements.reduce((acc: any, record: any) => {
+          const hour = new Date(record.fecha_hora).getHours();
+          const hourKey = `${hour}:00`;
+          if (!acc[hourKey]) {
+            acc[hourKey] = {
+              hour: hourKey,
+              usage: 0,
+              temperature: record.temperatura
+            };
+          }
+          acc[hourKey].usage = Math.round(record.temperatura * 0.5);
+          return acc;
+        }, {});
+        setHourlyData(Object.values(hourlyMeasurements));
+        setElectricBreakdown([
+          { name: 'Ventilación', value: 42, color: '#3B82F6' },
+          { name: 'Iluminación', value: 18, color: '#F59E0B' },
+          { name: 'Alimentación', value: 23, color: '#10B981' },
+          { name: 'Refrigeración', value: 12, color: '#8B5CF6' },
+          { name: 'Otros', value: 5, color: '#6B7280' },
+        ]);
+      } catch (error) {
+        console.error('Error fetching consumption data:', error);
+      }
+    };
+    fetchConsumptionData();
+  }, [currentLote]);
   
   // Calculate today's and average values
   const todayData = dailyData[dailyData.length - 1] || { electricity: 0, water: 0 };

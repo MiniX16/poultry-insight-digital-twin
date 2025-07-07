@@ -288,7 +288,7 @@ const Dashboard = () => {
         
         <StatCard 
           title="Peso Promedio" 
-          value={`${stats.weight.value} kg`}
+          value={`${stats.weight.value} g`}
           icon={<Timer className="h-5 w-5" />} 
           trend={{ value: stats.weight.trend, isPositive: stats.weight.trend >= 0 }}
           color="text-farm-green"

@@ -34,76 +34,74 @@ const MortalityPage = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Get the current active lote
+        // Get todos los lotes
         const lotes = await loteService.getAllLotes();
-        const activeLote = lotes.find(lote => lote.estado === 'activo');
-        if (activeLote) {
-          setCurrentLote(activeLote);
-          setTotalBirds(activeLote.cantidad_inicial);
-
-          // Get mortality data for the last 15 days
-          const mortalityRecords = await mortalidadService.getMortalidadesByLote(activeLote.lote_id);
-
-          // Process daily mortality data
-          const dailyData = mortalityRecords.reduce((acc: any, record: any) => {
-            const date = new Date(record.fecha);
-            const dateStr = date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
-            
-            if (!acc[dateStr]) {
-              acc[dateStr] = {
-                date: dateStr,
-                count: 0,
-                percentage: 0
-              };
-            }
-            
-            acc[dateStr].count += record.cantidad;
-            acc[dateStr].percentage = Number(((acc[dateStr].count / activeLote.cantidad_inicial) * 100).toFixed(2));
-            
-            return acc;
-          }, {});
-
-          setMortalityData(Object.values(dailyData));
-
-          // Process mortality by cause
-          const causeBreakdown = mortalityRecords.reduce((acc: any, record: any) => {
-            if (!acc[record.causa]) {
-              acc[record.causa] = 0;
-            }
-            acc[record.causa] += record.cantidad;
-            return acc;
-          }, {});
-
-          const colors = ['#EF4444', '#F59E0B', '#8B5CF6', '#10B981', '#6B7280'];
-          setCauseData(Object.entries(causeBreakdown).map(([name, value], index) => ({
-            name,
-            value: value as number,
-            color: colors[index % colors.length]
-          })));
-
-          // For zone data, we'll need to process based on the observaciones field
-          // Assuming observaciones contains zone information
-          const zoneBreakdown = mortalityRecords.reduce((acc: any, record: any) => {
-            const zone = record.observaciones?.match(/Zona: ([A-C][1-3])/)?.[1] || 'N/A';
-            if (!acc[zone]) {
-              acc[zone] = 0;
-            }
-            acc[zone] += record.cantidad;
-            return acc;
-          }, {});
-
-          setZoneData(Object.entries(zoneBreakdown).map(([zone, count]) => ({
-            zone,
-            count: count as number
-          })));
+        if (lotes.length > 0) {
+          setCurrentLote(lotes[0]);
+          setTotalBirds(lotes[0].cantidad_inicial);
         }
       } catch (error) {
         console.error('Error fetching mortality data:', error);
       }
     };
-
     fetchData();
   }, []);
+
+  useEffect(() => {
+    const fetchMortalityData = async () => {
+      if (!currentLote) return;
+      try {
+        // Get mortality data for el lote seleccionado
+        const mortalityRecords = await mortalidadService.getMortalidadesByLote(currentLote.lote_id);
+        // Process daily mortality data
+        const dailyData = mortalityRecords.reduce((acc: any, record: any) => {
+          const date = new Date(record.fecha);
+          const dateStr = date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
+          if (!acc[dateStr]) {
+            acc[dateStr] = {
+              date: dateStr,
+              count: 0,
+              percentage: 0
+            };
+          }
+          acc[dateStr].count += record.cantidad;
+          acc[dateStr].percentage = Number(((acc[dateStr].count / currentLote.cantidad_inicial) * 100).toFixed(2));
+          return acc;
+        }, {});
+        setMortalityData(Object.values(dailyData));
+        // Process mortality by cause
+        const causeBreakdown = mortalityRecords.reduce((acc: any, record: any) => {
+          if (!acc[record.causa]) {
+            acc[record.causa] = 0;
+          }
+          acc[record.causa] += record.cantidad;
+          return acc;
+        }, {});
+        const colors = ['#EF4444', '#F59E0B', '#8B5CF6', '#10B981', '#6B7280'];
+        setCauseData(Object.entries(causeBreakdown).map(([name, value], index) => ({
+          name,
+          value: value as number,
+          color: colors[index % colors.length]
+        })));
+        // For zone data, we'll need to process based on the observaciones field
+        const zoneBreakdown = mortalityRecords.reduce((acc: any, record: any) => {
+          const zone = record.observaciones?.match(/Zona: ([A-C][1-3])/)?.[1] || 'N/A';
+          if (!acc[zone]) {
+            acc[zone] = 0;
+          }
+          acc[zone] += record.cantidad;
+          return acc;
+        }, {});
+        setZoneData(Object.entries(zoneBreakdown).map(([zone, count]) => ({
+          zone,
+          count: count as number
+        })));
+      } catch (error) {
+        console.error('Error fetching mortality data:', error);
+      }
+    };
+    fetchMortalityData();
+  }, [currentLote]);
   
   // Calculate totals from real data
   const totalMortality = mortalityData.reduce((sum, day) => sum + day.count, 0);
