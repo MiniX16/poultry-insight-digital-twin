@@ -22,17 +22,30 @@ const Dashboard = () => {
     power: { value: '0', trend: 0 },
     efficiency: { value: '0.0', trend: 0 }
   });
+  const [currentLote, setCurrentLote] = useState<any>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Get the current active lote
+        // Get todos los lotes
         const lotes = await loteService.getAllLotes();
-        console.log('Todos los lotes:', lotes);
-        const activeLote = lotes.find(lote => lote.estado === 'activo');
-        console.log('Lote activo:', activeLote);
-        if (!activeLote) return;
+        if (lotes.length > 0) {
+          setCurrentLote(lotes[0]);
+        }
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      }
+    };
+    fetchData();
+    // Update every minute
+    const intervalId = setInterval(fetchData, 60 * 1000);
+    return () => clearInterval(intervalId);
+  }, []);
 
+  useEffect(() => {
+    const fetchStats = async () => {
+      if (!currentLote) return;
+      try {
         // Get today's start and end dates
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -43,7 +56,7 @@ const Dashboard = () => {
         const { data: todayMeasurements, error: envError } = await supabase
           .from('medicion_ambiental')
           .select('temperatura, fecha_hora')
-          .eq('lote_id', activeLote.lote_id)
+          .eq('lote_id', currentLote.lote_id)
           .gte('fecha_hora', today.toISOString())
           .lt('fecha_hora', tomorrow.toISOString())
           .order('fecha_hora', { ascending: false });
@@ -65,7 +78,7 @@ const Dashboard = () => {
         const { data: yesterdayMeasurements } = await supabase
           .from('medicion_ambiental')
           .select('temperatura, fecha_hora')
-          .eq('lote_id', activeLote.lote_id)
+          .eq('lote_id', currentLote.lote_id)
           .gte('fecha_hora', yesterday.toISOString())
           .lt('fecha_hora', today.toISOString())
           .order('fecha_hora', { ascending: false });
@@ -89,33 +102,30 @@ const Dashboard = () => {
         const { data: todayConsumptions, error: todayError } = await supabase
           .from('consumo')
           .select('cantidad_agua, kwh, fecha_hora')
-          .eq('lote_id', activeLote.lote_id)
+          .eq('lote_id', currentLote.lote_id)
           .gte('fecha_hora', today.toISOString())
           .lt('fecha_hora', tomorrow.toISOString());
 
         if (todayError) {
           console.error('Error fetching today consumption:', todayError);
         }
-        console.log('Consumos de hoy:', todayConsumptions);
 
         // Get yesterday's consumption data
         const { data: yesterdayConsumptions, error: yesterdayError } = await supabase
           .from('consumo')
           .select('cantidad_agua, kwh, fecha_hora')
-          .eq('lote_id', activeLote.lote_id)
+          .eq('lote_id', currentLote.lote_id)
           .gte('fecha_hora', yesterday.toISOString())
           .lt('fecha_hora', today.toISOString());
 
         if (yesterdayError) {
           console.error('Error fetching yesterday consumption:', yesterdayError);
         }
-        console.log('Consumos de ayer:', yesterdayConsumptions);
 
         // Calculate today's averages
         const todayWater = todayConsumptions && todayConsumptions.length > 0
           ? todayConsumptions.reduce((sum, record) => sum + record.cantidad_agua, 0) / todayConsumptions.length
           : 0;
-        
         const todayPower = todayConsumptions && todayConsumptions.length > 0
           ? todayConsumptions.reduce((sum, record) => sum + record.kwh, 0) / todayConsumptions.length
           : 0;
@@ -123,14 +133,10 @@ const Dashboard = () => {
         // Calculate yesterday's averages
         const yesterdayWater = yesterdayConsumptions && yesterdayConsumptions.length > 0
           ? yesterdayConsumptions.reduce((sum, record) => sum + record.cantidad_agua, 0) / yesterdayConsumptions.length
-          : todayWater; // Fallback to today's value if no yesterday data
-
+          : todayWater;
         const yesterdayPower = yesterdayConsumptions && yesterdayConsumptions.length > 0
           ? yesterdayConsumptions.reduce((sum, record) => sum + record.kwh, 0) / yesterdayConsumptions.length
-          : todayPower; // Fallback to today's value if no yesterday data
-
-        console.log('Media agua hoy:', todayWater, 'Media agua ayer:', yesterdayWater);
-        console.log('Media energía hoy:', todayPower, 'Media energía ayer:', yesterdayPower);
+          : todayPower;
 
         // Calculate water consumption trend
         const waterTrend = yesterdayWater !== 0
@@ -146,7 +152,7 @@ const Dashboard = () => {
         const { data: todayWeight, error: weightError } = await supabase
           .from('crecimiento')
           .select('peso_promedio, fecha')
-          .eq('lote_id', activeLote.lote_id)
+          .eq('lote_id', currentLote.lote_id)
           .order('fecha', { ascending: false })
           .limit(1)
           .single();
@@ -154,13 +160,12 @@ const Dashboard = () => {
         if (weightError) {
           console.error('Error fetching today weight:', weightError);
         }
-        console.log('Peso más reciente:', todayWeight);
 
         // Get previous weight data
         const { data: yesterdayWeight, error: yesterdayWeightError } = await supabase
           .from('crecimiento')
           .select('peso_promedio, fecha')
-          .eq('lote_id', activeLote.lote_id)
+          .eq('lote_id', currentLote.lote_id)
           .lt('fecha', todayWeight?.fecha || todayDate)
           .order('fecha', { ascending: false })
           .limit(1)
@@ -169,12 +174,10 @@ const Dashboard = () => {
         if (yesterdayWeightError) {
           console.error('Error fetching previous weight:', yesterdayWeightError);
         }
-        console.log('Peso anterior:', yesterdayWeight);
 
         // Get weight values
         const latestWeight = todayWeight?.peso_promedio ?? 0;
         const prevWeight = yesterdayWeight?.peso_promedio ?? latestWeight;
-        console.log('Peso hoy:', latestWeight, 'Peso ayer:', prevWeight);
 
         // Calculate weight trend
         const weightTrend = prevWeight !== 0
@@ -182,12 +185,10 @@ const Dashboard = () => {
           : 0;
 
         // Get mortality data
-        const mortalityData = await mortalidadService.getMortalidadesByLote(activeLote.lote_id);
-        console.log('Mortality data:', mortalityData);
+        const mortalityData = await mortalidadService.getMortalidadesByLote(currentLote.lote_id);
 
         // Get growth data
-        const growthData = await crecimientoService.getCrecimientosByLote(activeLote.lote_id);
-        console.log('Growth data:', growthData);
+        const growthData = await crecimientoService.getCrecimientosByLote(currentLote.lote_id);
 
         // Process mortality data
         const todayMortality = mortalityData.reduce((sum, record) => {
@@ -208,13 +209,13 @@ const Dashboard = () => {
 
         // Process growth data
         const growthRate = 0.15;
-        const dayDiff = Math.floor((today.getTime() - new Date(activeLote.fecha_ingreso).getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        const dayDiff = Math.floor((today.getTime() - new Date(currentLote.fecha_ingreso).getTime()) / (1000 * 60 * 60 * 24)) + 1;
         const maxWeight = 2800; // max weight in grams
         const midpoint = 20; // day of fastest growth
         const idealWeight = maxWeight / (1 + Math.exp(-growthRate * (dayDiff - midpoint)));
         
         const weightEfficiency = (latestWeight / idealWeight) * 100;
-        const survivalRate = ((activeLote.cantidad_inicial - todayMortality) / activeLote.cantidad_inicial) * 100;
+        const survivalRate = ((currentLote.cantidad_inicial - todayMortality) / currentLote.cantidad_inicial) * 100;
         const efficiency = (survivalRate * weightEfficiency) / 100;
         const prevEfficiency = 98; // You might want to store historical efficiency data
         const efficiencyTrend = ((efficiency - prevEfficiency) / prevEfficiency) * 100;
@@ -246,19 +247,24 @@ const Dashboard = () => {
           }
         });
       } catch (error) {
-        console.error('Error fetching dashboard data:', error);
+        console.error('Error fetching dashboard stats:', error);
       }
     };
-
-    fetchData();
+    fetchStats();
     // Update every minute
-    const intervalId = setInterval(fetchData, 60 * 1000);
+    const intervalId = setInterval(fetchStats, 60 * 1000);
     return () => clearInterval(intervalId);
-  }, []);
+  }, [currentLote]);
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold tracking-tight">Panel de Control</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold tracking-tight">Panel de Control</h1>
+        <div className="flex items-center bg-white rounded-full px-3 py-1 shadow-sm">
+          <Timer className="h-5 w-5 text-farm-teal mr-2" />
+          <span className="font-medium">Lote: {currentLote?.codigo || 'N/A'}</span>
+        </div>
+      </div>
       
       {/* Stats Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
