@@ -7,6 +7,7 @@ import { Timer } from 'lucide-react';
 import { crecimientoService } from '@/lib/services/crecimientoService';
 import { loteService } from '@/lib/services/loteService';
 import { polloService } from '@/lib/services/polloService';
+import LoteSelector from '@/components/LoteSelector';
 
 interface GrowthData {
   day: number;
@@ -25,6 +26,8 @@ const GrowthPage = () => {
   const [growthData, setGrowthData] = useState<GrowthData[]>([]);
   const [weightDistribution, setWeightDistribution] = useState<WeightDistribution[]>([]);
   const [currentLote, setCurrentLote] = useState<any>(null);
+
+  // El estado y la lógica de lotes ahora están en LoteSelector
 
   useEffect(() => {
     const fetchData = async () => {
@@ -110,10 +113,7 @@ const GrowthPage = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Crecimiento</h1>
-        <div className="flex items-center bg-white rounded-full px-3 py-1 shadow-sm">
-          <Timer className="h-5 w-5 text-farm-teal mr-2" />
-          <span className="font-medium">Lote: {currentLote?.codigo || 'N/A'}</span>
-        </div>
+        <LoteSelector currentLote={currentLote} setCurrentLote={setCurrentLote} />
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">

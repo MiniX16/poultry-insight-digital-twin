@@ -6,6 +6,7 @@ import MortalityChart from '@/components/dashboard/MortalityChart';
 import GrowthChart from '@/components/dashboard/GrowthChart';
 import EnvironmentalFactors from '@/components/dashboard/EnvironmentalFactors';
 import { ThermometerSun, Droplets, ArrowDown, Timer, PowerIcon, Gauge } from 'lucide-react';
+import LoteSelector from '@/components/LoteSelector';
 import { medicionAmbientalService } from '@/lib/services/medicionAmbientalService';
 import { consumoService } from '@/lib/services/consumoService';
 import { mortalidadService } from '@/lib/services/mortalidadService';
@@ -31,20 +32,7 @@ const Dashboard = () => {
   });
   const [currentLote, setCurrentLote] = useState<any>(null);
 
-  // Fetch current batch
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const lotes = await loteService.getAllLotes();
-        if (lotes.length > 0) setCurrentLote(lotes[0]);
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
-      }
-    };
-    fetchData();
-    const intervalId = setInterval(fetchData, 60 * 1000);
-    return () => clearInterval(intervalId);
-  }, []);
+  // El estado y la lógica de lotes ahora están en LoteSelector
 
   // Fetch dashboard stats
   useEffect(() => {
@@ -146,10 +134,7 @@ const Dashboard = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Panel de Control</h1>
-        <div className="flex items-center bg-white rounded-full px-3 py-1 shadow-sm">
-          <Timer className="h-5 w-5 text-farm-teal mr-2" />
-          <span className="font-medium">Lote: {currentLote?.codigo || 'N/A'}</span>
-        </div>
+        <LoteSelector currentLote={currentLote} setCurrentLote={setCurrentLote} />
       </div>
       {/* Stats Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

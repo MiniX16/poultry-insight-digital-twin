@@ -6,6 +6,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { ArrowDown } from 'lucide-react';
 import { mortalidadService } from '@/lib/services/mortalidadService';
 import { loteService } from '@/lib/services/loteService';
+import LoteSelector from '@/components/LoteSelector';
 
 interface MortalityData {
   date: string;
@@ -31,21 +32,7 @@ const MortalityPage = () => {
   const [currentLote, setCurrentLote] = useState<any>(null);
   const [totalBirds, setTotalBirds] = useState<number>(0);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Get todos los lotes
-        const lotes = await loteService.getAllLotes();
-        if (lotes.length > 0) {
-          setCurrentLote(lotes[0]);
-          setTotalBirds(lotes[0].cantidad_inicial);
-        }
-      } catch (error) {
-        console.error('Error fetching mortality data:', error);
-      }
-    };
-    fetchData();
-  }, []);
+  // El estado y la lógica de lotes ahora están en LoteSelector
 
   useEffect(() => {
     const fetchMortalityData = async () => {
@@ -112,10 +99,7 @@ const MortalityPage = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Mortandad</h1>
-        <div className="flex items-center bg-white rounded-full px-3 py-1 shadow-sm">
-          <ArrowDown className="h-5 w-5 text-farm-red mr-2" />
-          <span className="font-medium">Lote: {currentLote?.codigo || 'N/A'}</span>
-        </div>
+        <LoteSelector currentLote={currentLote} setCurrentLote={setCurrentLote} />
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">

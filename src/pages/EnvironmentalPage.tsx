@@ -7,6 +7,7 @@ import EnvironmentalFactors from '@/components/dashboard/EnvironmentalFactors';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { medicionAmbientalService } from '@/lib/services/medicionAmbientalService';
 import { loteService } from '@/lib/services/loteService';
+import LoteSelector from '@/components/LoteSelector';
 
 interface EnvironmentalData {
   time: string;
@@ -20,20 +21,7 @@ const EnvironmentalPage = () => {
   const [nh3Data, setNh3Data] = useState<EnvironmentalData[]>([]);
   const [currentLote, setCurrentLote] = useState<any>(null);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Get todos los lotes
-        const lotes = await loteService.getAllLotes();
-        if (lotes.length > 0) {
-          setCurrentLote(lotes[0]);
-        }
-      } catch (error) {
-        console.error('Error fetching environmental data:', error);
-      }
-    };
-    fetchData();
-  }, []);
+  // El estado y la lógica de lotes ahora están en LoteSelector
 
   useEffect(() => {
     const fetchEnvData = async () => {
@@ -91,9 +79,7 @@ const EnvironmentalPage = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Ambiente</h1>
-        <div className="flex items-center bg-white rounded-full px-3 py-1 shadow-sm">
-          <span className="font-medium">Lote: {currentLote?.codigo || 'N/A'}</span>
-        </div>
+        <LoteSelector currentLote={currentLote} setCurrentLote={setCurrentLote} />
       </div>
       
       <Tabs defaultValue="temperature" className="space-y-4">
