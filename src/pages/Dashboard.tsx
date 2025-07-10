@@ -45,12 +45,18 @@ const Dashboard = () => {
         const yesterday = new Date(today);
         yesterday.setDate(yesterday.getDate() - 1);
 
+        // Date strings for local comparison
+        const pad = n => n.toString().padStart(2, '0');
+        const getLocalDateString = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        const todayStr = getLocalDateString(today);
+        const yesterdayStr = getLocalDateString(yesterday);
+
         // --- TEMPERATURE ---
         const todayMeasurements = await medicionAmbientalService.getMedicionesByLoteAndRango(
-          currentLote.lote_id, today.toISOString(), tomorrow.toISOString()
+          currentLote.lote_id, todayStr + 'T00:00:00', tomorrow.toISOString().split('T')[0] + 'T00:00:00'
         );
         const yesterdayMeasurements = await medicionAmbientalService.getMedicionesByLoteAndRango(
-          currentLote.lote_id, yesterday.toISOString(), today.toISOString()
+          currentLote.lote_id, yesterdayStr + 'T00:00:00', todayStr + 'T00:00:00'
         );
         const avgTemp = getAvg(todayMeasurements, 'temperatura');
         const yesterdayAvg = yesterdayMeasurements.length ? getAvg(yesterdayMeasurements, 'temperatura') : avgTemp;
@@ -75,10 +81,6 @@ const Dashboard = () => {
 
         // --- GROWTH (WEIGHT) ---
         const crecimientos = await crecimientoService.getCrecimientosByLote(currentLote.lote_id);
-        const pad = n => n.toString().padStart(2, '0');
-        const getLocalDateString = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-        const todayStr = getLocalDateString(today);
-        const yesterdayStr = getLocalDateString(yesterday);
         const todayWeights = crecimientos.filter(c => c.fecha === todayStr);
         const yesterdayWeights = crecimientos.filter(c => c.fecha === yesterdayStr);
         const latestWeight = getAvg(todayWeights, 'peso_promedio');
