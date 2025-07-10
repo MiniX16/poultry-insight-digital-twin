@@ -9,6 +9,7 @@ import { loteService } from '@/lib/services/loteService';
 import { consumoService } from '@/lib/services/consumoService';
 import { alimentacionService } from '@/lib/services/alimentacionService';
 import { crecimientoService } from '@/lib/services/crecimientoService';
+import LoteSelector from '@/components/LoteSelector';
 
 interface FeedingData {
   date: string;
@@ -44,19 +45,7 @@ const FeedingPage = () => {
     waterRatio: 0
   });
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Get todos los lotes
-        const lotes = await loteService.getAllLotes();
-        if (lotes.length === 0) return;
-        setCurrentLote(lotes[0]);
-      } catch (error) {
-        console.error('Error fetching feeding data:', error);
-      }
-    };
-    fetchData();
-  }, []);
+  // El estado y la lógica de lotes ahora están en LoteSelector
 
   useEffect(() => {
     const fetchFeedingData = async () => {
@@ -161,10 +150,7 @@ const FeedingPage = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Alimentación</h1>
-        <div className="flex items-center bg-white rounded-full px-3 py-1 shadow-sm">
-          <Layers3 className="h-5 w-5 text-farm-teal mr-2" />
-          <span className="font-medium">Lote: {currentLote?.codigo || 'N/A'}</span>
-        </div>
+        <LoteSelector currentLote={currentLote} setCurrentLote={setCurrentLote} />
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">

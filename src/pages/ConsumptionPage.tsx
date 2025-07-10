@@ -7,6 +7,7 @@ import { PowerIcon, Droplets } from 'lucide-react';
 import { consumoService } from '@/lib/services/consumoService';
 import { loteService } from '@/lib/services/loteService';
 import { medicionAmbientalService } from '@/lib/services/medicionAmbientalService';
+import LoteSelector from '@/components/LoteSelector';
 
 interface ConsumptionData {
   date: string;
@@ -33,21 +34,7 @@ const ConsumptionPage = () => {
   const [currentLote, setCurrentLote] = useState<any>(null);
   const [birdCount, setBirdCount] = useState<number>(0);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Get todos los lotes
-        const lotes = await loteService.getAllLotes();
-        if (lotes.length > 0) {
-          setCurrentLote(lotes[0]);
-          setBirdCount(lotes[0].cantidad_inicial);
-        }
-      } catch (error) {
-        console.error('Error fetching consumption data:', error);
-      }
-    };
-    fetchData();
-  }, []);
+  // El estado y la lógica de lotes ahora están en LoteSelector
 
   useEffect(() => {
     const fetchConsumptionData = async () => {
@@ -129,10 +116,7 @@ const ConsumptionPage = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Consumos</h1>
-        <div className="flex items-center bg-white rounded-full px-3 py-1 shadow-sm">
-          <PowerIcon className="h-5 w-5 text-farm-purple mr-2" />
-          <span className="font-medium">Lote: A-2023-14</span>
-        </div>
+        <LoteSelector currentLote={currentLote} setCurrentLote={setCurrentLote} />
       </div>
       
       <Tabs defaultValue="electricity" className="space-y-4">
