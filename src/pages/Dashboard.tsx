@@ -32,8 +32,6 @@ const Dashboard = () => {
   });
   const [currentLote, setCurrentLote] = useState<any>(null);
 
-  // El estado y la lógica de lotes ahora están en LoteSelector
-
   // Fetch dashboard stats
   useEffect(() => {
     const fetchStats = async () => {

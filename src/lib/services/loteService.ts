@@ -12,15 +12,15 @@ export const loteService = {
       .from('lote')
       .select(`
         *,
-        nave:nave_id(
-          nave_id,
+        granja:granja_id(
+          granja_id,
           nombre
         )
       `)
       .order('fecha_ingreso', { ascending: false });
     
     if (error) throw error;
-    return data as (Lote & { nave: { nave_id: number; nombre: string } | null })[];
+    return data as (Lote & { granja: { granja_id: number; nombre: string } | null })[];
   },
 
   // Obtener un lote por ID
@@ -29,8 +29,8 @@ export const loteService = {
       .from('lote')
       .select(`
         *,
-        nave:nave_id(
-          nave_id,
+        granja:granja_id(
+          granja_id,
           nombre,
           capacidad,
           ubicacion,
@@ -43,8 +43,8 @@ export const loteService = {
     
     if (error) throw error;
     return data as Lote & {
-      nave: {
-        nave_id: number;
+      granja: {
+        granja_id: number;
         nombre: string;
         capacidad: number;
         ubicacion: string;
@@ -54,12 +54,12 @@ export const loteService = {
     };
   },
 
-  // Obtener lotes por nave
-  async getLotesByNave(naveId: number) {
+  // Obtener lotes por granja
+  async getLotesByGranja(granjaId: number) {
     const { data, error } = await supabase
       .from('lote')
       .select('*')
-      .eq('nave_id', naveId)
+      .eq('granja_id', granjaId)
       .order('fecha_ingreso', { ascending: false });
     
     if (error) throw error;
@@ -108,8 +108,8 @@ export const loteService = {
       .from('lote')
       .select(`
         *,
-        nave:nave_id(
-          nave_id,
+        granja:granja_id(
+          granja_id,
           nombre
         )
       `)
@@ -117,6 +117,6 @@ export const loteService = {
       .order('fecha_ingreso', { ascending: false });
     
     if (error) throw error;
-    return data as (Lote & { nave: { nave_id: number; nombre: string } | null })[];
+    return data as (Lote & { granja: { granja_id: number; nombre: string } | null })[];
   }
 }; 

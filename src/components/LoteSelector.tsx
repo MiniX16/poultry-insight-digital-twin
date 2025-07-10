@@ -13,10 +13,14 @@ const LoteSelector: React.FC<LoteSelectorProps> = ({ currentLote, setCurrentLote
 
   useEffect(() => {
     const fetchLotes = async () => {
-      const lotesData = await loteService.getAllLotes();
-      setLotes(lotesData);
-      if (lotesData.length > 0 && !currentLote) {
-        setCurrentLote(lotesData[0]);
+      try {
+        const lotesData = await loteService.getAllLotes();
+        setLotes(lotesData);
+        if (lotesData.length > 0 && !currentLote) {
+          setCurrentLote(lotesData[0]);
+        }
+      } catch (error) {
+        console.error('Error fetching lotes:', error);
       }
     };
     fetchLotes();
