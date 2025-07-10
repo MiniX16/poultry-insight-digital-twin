@@ -42,7 +42,7 @@ const GrowthChart = () => {
             day: dayDiff,
             date: recordDate.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }),
             ideal: Math.round(idealWeight),
-            actual: Math.round(record.peso_promedio)
+            actual: Math.round(record.peso)
           };
         });
 
