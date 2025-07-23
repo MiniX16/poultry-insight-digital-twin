@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import StatCard from '@/components/dashboard/StatCard';
 import TemperatureMap from '@/components/dashboard/TemperatureMap';
 import ConsumptionChart from '@/components/dashboard/ConsumptionChart';
-import MortalityChart from '@/components/dashboard/MortalityChart';
 import GrowthChart from '@/components/dashboard/GrowthChart';
 import EnvironmentalFactors from '@/components/dashboard/EnvironmentalFactors';
 import { ThermometerSun, Droplets, ArrowDown, Timer, PowerIcon, Gauge } from 'lucide-react';
@@ -139,13 +138,14 @@ const Dashboard = () => {
         <LoteSelector currentLote={currentLote} setCurrentLote={setCurrentLote} />
       </div>
       {/* Stats Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
         <StatCard 
           title="Temperatura Promedio" 
           value={`${stats.temperature.value} °C`}
           icon={<ThermometerSun className="h-5 w-5" />} 
           trend={{ value: stats.temperature.trend, isPositive: stats.temperature.trend >= 0 }}
           color="text-farm-blue"
+          className="lg:col-span-2"
         />
         <StatCard 
           title="Consumo de Agua" 
@@ -153,6 +153,7 @@ const Dashboard = () => {
           icon={<Droplets className="h-5 w-5" />} 
           trend={{ value: stats.water.trend, isPositive: stats.water.trend >= 0 }}
           color="text-farm-teal"
+          className="lg:col-span-2"
         />
         <StatCard 
           title="Mortandad Diaria" 
@@ -160,6 +161,7 @@ const Dashboard = () => {
           icon={<ArrowDown className="h-5 w-5" />} 
           trend={{ value: stats.mortality.trend, isPositive: stats.mortality.trend >= 0 }}
           color="text-farm-red"
+          className="lg:col-span-2"
         />
         <StatCard 
           title="Peso Promedio" 
@@ -167,6 +169,7 @@ const Dashboard = () => {
           icon={<Timer className="h-5 w-5" />} 
           trend={{ value: stats.weight.trend, isPositive: stats.weight.trend >= 0 }}
           color="text-farm-green"
+          className="lg:col-span-3"
         />
         <StatCard 
           title="Consumo Eléctrico" 
@@ -174,6 +177,7 @@ const Dashboard = () => {
           icon={<PowerIcon className="h-5 w-5" />} 
           trend={{ value: stats.power.trend, isPositive: stats.power.trend >= 0 }}
           color="text-farm-purple"
+          className="lg:col-span-3"
         />
       </div>
       {/* Main Content */}
@@ -181,16 +185,13 @@ const Dashboard = () => {
         <div className="lg:col-span-4">
           <TemperatureMap />
         </div>
-        <div className="lg:col-span-4">
+        <div className="lg:col-span-4 flex flex-col space-y-15">
           <EnvironmentalFactors />
         </div>
         <div className="lg:col-span-4">
-          <MortalityChart />
-        </div>
-        <div className="lg:col-span-6">
           <GrowthChart />
         </div>
-        <div className="lg:col-span-6">
+        <div className="lg:col-span-12">
           <ConsumptionChart />
         </div>
       </div>
