@@ -168,7 +168,7 @@ export const polloService = {
   async getHistorialPesoInicial(loteId: number) {
     const { data, error } = await supabase
       .from('pollo')
-      .select('peso_inicial, fecha_registro')
+      .select('peso, fecha_registro')
       .eq('lote_id', loteId)
       .order('fecha_registro', { ascending: true });
     
@@ -179,8 +179,8 @@ export const polloService = {
     
     if (totalPollos === 0) return null;
 
-    const pesoPromedio = pollos.reduce((sum, p) => sum + p.peso_inicial, 0) / totalPollos;
-    const pesosOrdenados = pollos.map(p => p.peso_inicial).sort((a, b) => a - b);
+    const pesoPromedio = pollos.reduce((sum, p) => sum + p.peso, 0) / totalPollos;
+    const pesosOrdenados = pollos.map(p => p.peso).sort((a, b) => a - b);
     
     return {
       cantidad_pollos: totalPollos,
@@ -192,7 +192,7 @@ export const polloService = {
         : pesosOrdenados[Math.floor(totalPollos/2)],
       distribucion_temporal: pollos.map(p => ({
         fecha: p.fecha_registro,
-        peso: p.peso_inicial
+        peso: p.peso
       }))
     };
   }

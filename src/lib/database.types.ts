@@ -249,6 +249,32 @@ export type Database = {
           updated_at?: string
         }
       }
+      mapa_termico: {
+        Row: {
+          id: number
+          lote_id: number
+          fecha: string
+          temperaturas: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          lote_id: number
+          fecha: string
+          temperaturas: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          lote_id?: number
+          fecha?: string
+          temperaturas?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
       crecimiento: {
         Row: {
           crecimiento_id: number
@@ -289,7 +315,7 @@ export type Database = {
           pollo_id: number
           lote_id: number
           identificador: string
-          peso_inicial: number
+          peso: number
           estado_salud: string
           fecha_registro: string
           created_at: string
@@ -299,7 +325,7 @@ export type Database = {
           pollo_id?: number
           lote_id: number
           identificador: string
-          peso_inicial: number
+          peso: number
           estado_salud: string
           fecha_registro: string
           created_at?: string
@@ -309,7 +335,7 @@ export type Database = {
           pollo_id?: number
           lote_id?: number
           identificador?: string
-          peso_inicial?: number
+          peso?: number
           estado_salud?: string
           fecha_registro?: string
           created_at?: string

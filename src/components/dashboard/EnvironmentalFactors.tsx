@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { medicionAmbientalService } from '@/lib/services/medicionAmbientalService';
 
 interface EnvironmentalReadings {
   temperature: number | null;
@@ -10,18 +11,65 @@ interface EnvironmentalReadings {
 }
 
 const EnvironmentalFactors = () => {
-  const readings: EnvironmentalReadings = {
+  const [readings, setReadings] = useState<EnvironmentalReadings>({
     temperature: null,
     humidity: null,
     co2: null,
     nh3: null,
     iluminacion: null
+  });
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const data = await medicionAmbientalService.getUltimaMedicion();
+        setReadings({
+          temperature: data.temperatura,
+          humidity: data.humedad,
+          co2: data.co2,
+          nh3: data.amoniaco,
+          iluminacion: data.iluminacion
+        });
+      } catch (error) {
+        console.error('Error fetching environmental data:', error);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Define rangos ideales para colorear
+  const getStatusColor = (type: keyof EnvironmentalReadings) => {
+    const value = readings[type];
+    if (value === null) return 'bg-gray-200';
+
+    const ranges = {
+      temperature: { min: 20, max: 26 },
+      humidity: { min: 50, max: 70 },
+      co2: { max: 3000 },
+      nh3: { max: 25 },
+      iluminacion: { min: 20, max: 50 }
+    };
+
+    const r = ranges[type];
+    if (!r) return 'bg-gray-200';
+
+    if ('min' in r && 'max' in r && (value < r.min || value > r.max)) return 'bg-red-400';
+    if ('max' in r && value > r.max) return 'bg-red-400';
+    return 'bg-green-400';
   };
 
-  // Function to get status color based on value ranges
-  const getStatusColor = (type: keyof EnvironmentalReadings) => {
-    return 'bg-gray-200';
-  };
+  const renderRow = (label: string, key: keyof EnvironmentalReadings, unit: string = '') => (
+    <div className="flex items-center justify-between">
+      <span className="text-sm font-medium">{label}</span>
+      <div className="flex items-center space-x-2">
+        <span className="text-2xl font-bold">
+          {readings[key] !== null ? `${readings[key]?.toFixed(1)}${unit}` : 'N/A'}
+        </span>
+        <div className={`w-3 h-3 rounded-full ${getStatusColor(key)}`} />
+      </div>
+    </div>
+  );
 
   return (
     <Card>
@@ -31,45 +79,11 @@ const EnvironmentalFactors = () => {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">Temperatura</span>
-            <div className="flex items-center space-x-2">
-              <span className="text-2xl font-bold">N/A</span>
-              <div className={`w-3 h-3 rounded-full ${getStatusColor('temperature')}`} />
-            </div>
-          </div>
-        
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">Humedad</span>
-            <div className="flex items-center space-x-2">
-              <span className="text-2xl font-bold">N/A</span>
-              <div className={`w-3 h-3 rounded-full ${getStatusColor('humidity')}`} />
-            </div>
-          </div>
-        
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">CO₂</span>
-            <div className="flex items-center space-x-2">
-              <span className="text-2xl font-bold">N/A</span>
-              <div className={`w-3 h-3 rounded-full ${getStatusColor('co2')}`} />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">NH₃</span>
-            <div className="flex items-center space-x-2">
-              <span className="text-2xl font-bold">N/A</span>
-              <div className={`w-3 h-3 rounded-full ${getStatusColor('nh3')}`} />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">Iluminación</span>
-            <div className="flex items-center space-x-2">
-              <span className="text-2xl font-bold">N/A</span>
-              <div className={`w-3 h-3 rounded-full ${getStatusColor('iluminacion')}`} />
-            </div>
-          </div>
+          {renderRow("Temperatura", "temperature", "°C")}
+          {renderRow("Humedad", "humidity", "%")}
+          {renderRow("CO₂", "co2", " ppm")}
+          {renderRow("NH₃", "nh3", " ppm")}
+          {renderRow("Iluminación", "iluminacion", " lx")}
         </div>
       </CardContent>
     </Card>

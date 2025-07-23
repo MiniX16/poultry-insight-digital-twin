@@ -50,10 +50,11 @@ const Dashboard = () => {
         const getLocalDateString = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
         const todayStr = getLocalDateString(today);
         const yesterdayStr = getLocalDateString(yesterday);
+        const tomorrowStr = getLocalDateString(tomorrow);
 
         // --- TEMPERATURE ---
         const todayMeasurements = await medicionAmbientalService.getMedicionesByLoteAndRango(
-          currentLote.lote_id, todayStr + 'T00:00:00', tomorrow.toISOString().split('T')[0] + 'T00:00:00'
+          currentLote.lote_id, todayStr + 'T00:00:00', tomorrowStr + 'T00:00:00'
         );
         const yesterdayMeasurements = await medicionAmbientalService.getMedicionesByLoteAndRango(
           currentLote.lote_id, yesterdayStr + 'T00:00:00', todayStr + 'T00:00:00'
@@ -72,6 +73,7 @@ const Dashboard = () => {
           const fecha = new Date(record.fecha_hora);
           return fecha >= yesterday && fecha < today;
         });
+        console.log('Today filtered consumos:', todayFiltered);
         const todayWater = getAvg(todayFiltered, 'cantidad_agua');
         const todayPower = getAvg(todayFiltered, 'kwh');
         const yesterdayWater = yesterdayFiltered.length ? getAvg(yesterdayFiltered, 'cantidad_agua') : todayWater;
@@ -133,7 +135,7 @@ const Dashboard = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Panel de Control</h1>
+      <h1 className="text-2xl font-bold tracking-tight">Panel de Control</h1>
         <LoteSelector currentLote={currentLote} setCurrentLote={setCurrentLote} />
       </div>
       {/* Stats Row */}
@@ -172,13 +174,6 @@ const Dashboard = () => {
           icon={<PowerIcon className="h-5 w-5" />} 
           trend={{ value: stats.power.trend, isPositive: stats.power.trend >= 0 }}
           color="text-farm-purple"
-        />
-        <StatCard 
-          title="Eficiencia Productiva" 
-          value={`${stats.efficiency.value}%`}
-          icon={<Gauge className="h-5 w-5" />} 
-          trend={{ value: stats.efficiency.trend, isPositive: stats.efficiency.trend >= 0 }}
-          color="text-farm-orange"
         />
       </div>
       {/* Main Content */}

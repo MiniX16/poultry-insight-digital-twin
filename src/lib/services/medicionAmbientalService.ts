@@ -28,6 +28,18 @@ export const medicionAmbientalService = {
     })[];
   },
 
+  // Obtener últimas mediciones ambientales
+  async getUltimaMedicion() {
+    const { data, error } = await supabase
+      .from('medicion_ambiental')
+      .select('*')
+      .order('fecha_hora', { ascending: false })
+      .limit(1)
+      .single();
+    if (error) throw error;
+    return data as MedicionAmbiental;
+  },
+
   // Obtener medición por ID
   async getMedicionById(id: number) {
     const { data, error } = await supabase
