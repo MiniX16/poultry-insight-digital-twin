@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { LoteProvider } from "@/context/LoteContext";
 
 import AppLayout from "./components/layout/AppLayout";
 import Dashboard from "./pages/Dashboard";
@@ -23,18 +24,20 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route element={<AppLayout />}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/environmental" element={<EnvironmentalPage />} />
-            <Route path="/feeding" element={<FeedingPage />} />
-            <Route path="/mortality" element={<MortalityPage />} />
-            <Route path="/growth" element={<GrowthPage />} />
-            <Route path="/consumption" element={<ConsumptionPage />} />
-            <Route path="/digital-twin" element={<DigitalTwinPage />} />
-            <Route path="*" element={<NotFound />} />
-          </Route>
-        </Routes>
+        <LoteProvider>
+            <Routes>
+              <Route element={<AppLayout />}>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/environmental" element={<EnvironmentalPage />} />
+                <Route path="/feeding" element={<FeedingPage />} />
+                <Route path="/mortality" element={<MortalityPage />} />
+                <Route path="/growth" element={<GrowthPage />} />
+                <Route path="/consumption" element={<ConsumptionPage />} />
+                <Route path="/digital-twin" element={<DigitalTwinPage />} />
+                <Route path="*" element={<NotFound />} />
+              </Route>
+            </Routes>
+        </LoteProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

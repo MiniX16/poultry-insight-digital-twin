@@ -1,14 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { useLote } from '@/context/LoteContext';
 import { Timer } from 'lucide-react';
 import { loteService } from '@/lib/services/loteService';
 
-interface LoteSelectorProps {
-  currentLote: any;
-  setCurrentLote: (lote: any) => void;
-  className?: string;
-}
-
-const LoteSelector: React.FC<LoteSelectorProps> = ({ currentLote, setCurrentLote, className = '' }) => {
+const LoteSelector = ({ className = ''}: { className?: string }) => {
+  const { currentLote, setCurrentLote } = useLote();
   const [lotes, setLotes] = useState<any[]>([]);
 
   useEffect(() => {

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useLote } from '@/context/LoteContext';
 import StatCard from '@/components/dashboard/StatCard';
 import TemperatureMap from '@/components/dashboard/TemperatureMap';
 import ConsumptionChart from '@/components/dashboard/ConsumptionChart';
@@ -29,11 +30,12 @@ const Dashboard = () => {
     power: { value: '0', trend: 0 },
     efficiency: { value: '0.0', trend: 0 }
   });
-  const [currentLote, setCurrentLote] = useState<any>(null);
+  const { currentLote } = useLote();
 
   // Fetch dashboard stats
   useEffect(() => {
     const fetchStats = async () => {
+      console.log('Fetching dashboard stats for currentLote:', currentLote);
       if (!currentLote) return;
       try {
         // Base dates
@@ -135,7 +137,7 @@ const Dashboard = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
       <h1 className="text-2xl font-bold tracking-tight">Panel de Control</h1>
-        <LoteSelector currentLote={currentLote} setCurrentLote={setCurrentLote} />
+        <LoteSelector />
       </div>
       {/* Stats Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
