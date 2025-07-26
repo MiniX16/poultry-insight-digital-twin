@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useLote } from '@/context/LoteContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { mapaTermicoService } from '@/lib/services/mapaTermicoService';
 
@@ -10,11 +11,13 @@ const TemperatureMap = () => {
   const [temperatureData, setTemperatureData] = useState<TemperatureData>({
     rows: Array(10).fill(Array(15).fill(null)),
   });
+  const { currentLote } = useLote();
 
   useEffect(() => {
+    if (!currentLote) return; 
     const fetchData = async () => {
       try {
-        const data = await mapaTermicoService.getUltimoMapa();
+        const data = await mapaTermicoService.getUltimoMapaPorLote(currentLote.lote_id);
         const { temperaturas } = data;
 
         setTemperatureData({
@@ -26,10 +29,10 @@ const TemperatureMap = () => {
     };
 
     fetchData();
-  }, []);
+  }, [currentLote]);
 
-  const flatten = (rows: (number | null)[][]) =>
-    rows.flat().filter((val): val is number => val !== null);
+  const flatten = (rows: (number | null)[][] | undefined) =>
+    rows?.flat()?.filter((val): val is number => val !== null) ?? [];
 
   const values = flatten(temperatureData.rows);
   const minTemp = values.length ? Math.min(...values) : 0;

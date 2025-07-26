@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useLote } from '@/context/LoteContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { medicionAmbientalService } from '@/lib/services/medicionAmbientalService';
 
@@ -18,11 +19,13 @@ const EnvironmentalFactors = () => {
     nh3: null,
     iluminacion: null
   });
+  const { currentLote } = useLote();
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!currentLote) return;
       try {
-        const data = await medicionAmbientalService.getUltimaMedicion();
+        const data = await medicionAmbientalService.getUltimaMedicionByLote(currentLote.lote_id);
         setReadings({
           temperature: data.temperatura,
           humidity: data.humedad,
@@ -36,7 +39,7 @@ const EnvironmentalFactors = () => {
     };
 
     fetchData();
-  }, []);
+  }, [currentLote]);
 
   // Define rangos ideales para colorear
   const getStatusColor = (type: keyof EnvironmentalReadings) => {
