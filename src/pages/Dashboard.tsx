@@ -35,7 +35,6 @@ const Dashboard = () => {
   // Fetch dashboard stats
   useEffect(() => {
     const fetchStats = async () => {
-      console.log('Fetching dashboard stats for currentLote:', currentLote);
       if (!currentLote) return;
       try {
         // Base dates

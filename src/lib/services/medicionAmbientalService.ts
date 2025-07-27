@@ -66,15 +66,17 @@ export const medicionAmbientalService = {
   },
 
   // Obtener mediciones por lote
-  async getMedicionesByLote(loteId: number) {
+  async getUltimaMedicionByLote(loteId: number) {
     const { data, error } = await supabase
       .from('medicion_ambiental')
       .select('*')
       .eq('lote_id', loteId)
-      .order('fecha_hora', { ascending: false });
+      .order('fecha_hora', { ascending: false })
+      .limit(1)
+      .single();
     
     if (error) throw error;
-    return data as MedicionAmbiental[];
+    return data as MedicionAmbiental;
   },
 
   // Obtener mediciones por lote y rango de fechas

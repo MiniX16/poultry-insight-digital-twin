@@ -1,16 +1,16 @@
-import { supabase } from '../supabase';
-import type { Database } from '../database.types';
+import { supabase } from "../supabase";
+import type { Database } from "../database.types";
 
-type MapaTermico = Database['public']['Tables']['mapa_termico']['Row'];
-type MapaTermicoInsert = Database['public']['Tables']['mapa_termico']['Insert'];
-type MapaTermicoUpdate = Database['public']['Tables']['mapa_termico']['Update'];
+type MapaTermico = Database["public"]["Tables"]["mapa_termico"]["Row"];
+type MapaTermicoInsert = Database["public"]["Tables"]["mapa_termico"]["Insert"];
+type MapaTermicoUpdate = Database["public"]["Tables"]["mapa_termico"]["Update"];
 
 export const mapaTermicoService = {
   async getAllMapas() {
     const { data, error } = await supabase
-      .from('mapa_termico')
-      .select('*')
-      .order('fecha', { ascending: false });
+      .from("mapa_termico")
+      .select("*")
+      .order("fecha", { ascending: false });
 
     if (error) throw error;
     return data as MapaTermico[];
@@ -18,9 +18,9 @@ export const mapaTermicoService = {
 
   async getUltimoMapa() {
     const { data, error } = await supabase
-      .from('mapa_termico')
-      .select('*')
-      .order('fecha', { ascending: false })
+      .from("mapa_termico")
+      .select("*")
+      .order("fecha", { ascending: false })
       .limit(1)
       .single();
 
@@ -28,20 +28,22 @@ export const mapaTermicoService = {
     return data as MapaTermico;
   },
 
-  async getMapasPorLote(loteId: number) {
+  async getUltimoMapaPorLote(loteId: number) {
     const { data, error } = await supabase
-      .from('mapa_termico')
-      .select('*')
-      .eq('lote_id', loteId)
-      .order('fecha', { ascending: false });
+      .from("mapa_termico")
+      .select("*")
+      .eq("lote_id", loteId)
+      .order("fecha", { ascending: false })
+      .limit(1)
+      .single();
 
     if (error) throw error;
-    return data as MapaTermico[];
+    return data as MapaTermico;
   },
 
   async createMapaTermico(mapa: MapaTermicoInsert) {
     const { data, error } = await supabase
-      .from('mapa_termico')
+      .from("mapa_termico")
       .insert(mapa)
       .select()
       .single();
@@ -52,9 +54,9 @@ export const mapaTermicoService = {
 
   async updateMapaTermico(id: number, mapa: MapaTermicoUpdate) {
     const { data, error } = await supabase
-      .from('mapa_termico')
+      .from("mapa_termico")
       .update(mapa)
-      .eq('id', id)
+      .eq("id", id)
       .select()
       .single();
 
@@ -63,12 +65,9 @@ export const mapaTermicoService = {
   },
 
   async deleteMapaTermico(id: number) {
-    const { error } = await supabase
-      .from('mapa_termico')
-      .delete()
-      .eq('id', id);
+    const { error } = await supabase.from("mapa_termico").delete().eq("id", id);
 
     if (error) throw error;
     return true;
-  }
+  },
 };
