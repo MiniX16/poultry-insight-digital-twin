@@ -1,164 +1,139 @@
 import React, { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription
+} from "@/components/ui/card";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer
+} from 'recharts';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
+
 import { consumoService } from '@/lib/services/consumoService';
-import { medicionAmbientalService } from '@/lib/services/medicionAmbientalService';
-import { loteService } from '@/lib/services/loteService';
+import { useLote } from '@/context/LoteContext';
 
 interface ConsumptionData {
   label: string;
   power: number | null;
   water: number | null;
-  feed: number | null;
   tooltipLabel?: string;
 }
 
 const ConsumptionChart = () => {
-  const [timeRange, setTimeRange] = React.useState('24h');
+  const [timeRange, setTimeRange] = useState('24h');
   const [data, setData] = useState<ConsumptionData[]>([]);
+  const { currentLote } = useLote();
+
+  // Helper function to create hourly data for 24h view
+  const createHourlyData = (records: any[]): ConsumptionData[] => {
+    const hourlyData: ConsumptionData[] = Array.from({ length: 24 }, (_, i) => ({
+      label: `${i.toString().padStart(2, '0')}:00`,
+      tooltipLabel: `${i.toString().padStart(2, '0')}:00`,
+      power: null,
+      water: null
+    }));
+
+    records.forEach(record => {
+      const date = new Date(record.fecha_hora);
+      const hour = date.getHours();
+      if (hourlyData[hour]) {
+        hourlyData[hour].power = record.kwh;
+        hourlyData[hour].water = record.cantidad_agua;
+      }
+    });
+
+    return hourlyData;
+  };
+
+  // Helper function to create daily data for 7d and 30d views
+  const createDailyData = (records: any[]): ConsumptionData[] => {
+    const dailyData: Record<string, { power: number[], water: number[] }> = {};
+
+    records.forEach(record => {
+      const date = new Date(record.fecha_hora);
+      const key = date.toISOString().split('T')[0]; // YYYY-MM-DD
+      if (!dailyData[key]) {
+        dailyData[key] = { power: [], water: [] };
+      }
+      if (record.kwh !== null) dailyData[key].power.push(record.kwh);
+      if (record.cantidad_agua !== null) dailyData[key].water.push(record.cantidad_agua);
+    });
+
+    return Object.entries(dailyData)
+      .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
+      .map(([key, values]) => {
+        const fecha = new Date(key);
+        return {
+          label: fecha.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit' }),
+          tooltipLabel: fecha.toLocaleDateString('es-ES', {
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+          }),
+          power: values.power.length > 0 ? values.power.reduce((a, b) => a + b, 0) / values.power.length : null,
+          water: values.water.length > 0 ? values.water.reduce((a, b) => a + b, 0) / values.water.length : null
+        };
+      })
+      .filter(item => item.power !== null || item.water !== null);
+  };
+
+  // Helper function to get records based on time range
+  const getRecordsForTimeRange = (allRecords: any[], timeRange: string): any[] => {
+    switch (timeRange) {
+      case '24h':
+        return allRecords.slice(0, 24);
+      case '7d':
+        return allRecords.slice(0, 7 * 24);
+      case '30d':
+        return allRecords.slice(0, 30 * 24);
+      default:
+        return allRecords.slice(0, 24);
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!currentLote) {
+        console.log("No currentLote available");
+        return;
+      }
+      
       try {
-        // Get the current active lote
-        const lotes = await loteService.getAllLotes();
-        const activeLote = lotes.find(lote => lote.estado === 'activo');
-        if (!activeLote) return;
-
-        // Calculate time range based on selection
-        const now = new Date();
-        let startDate = new Date();
-        switch (timeRange) {
-          case '24h':
-            startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-            break;
-          case '7d':
-            startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-            break;
-          case '30d':
-            startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-            break;
-        }
-
-        // Get consumption data
-        const consumptionData = await consumoService.getConsumosByLote(activeLote.lote_id);
-
+        const allRecords = await consumoService.getConsumosByLote(currentLote.lote_id);
+        const records = getRecordsForTimeRange(allRecords, timeRange);
+        
+        let chartData: ConsumptionData[];
+        
         if (timeRange === '24h') {
-          // Process hourly data for 24h view
-          const hourlyData: { [key: string]: ConsumptionData } = {};
-          for (let i = 0; i < 24; i++) {
-            const hour = i.toString().padStart(2, '0') + ':00';
-            hourlyData[hour] = {
-              label: hour,
-              power: null,
-              water: null,
-              feed: null
-            };
-          }
-
-          consumptionData.forEach(record => {
-            const date = new Date(record.fecha_hora);
-            if (date >= startDate && date <= now) {
-              const hour = date.getHours().toString().padStart(2, '0') + ':00';
-              hourlyData[hour] = {
-                label: hour,
-                power: record.kwh,
-                water: record.cantidad_agua,
-                feed: record.cantidad_alimento
-              };
-            }
-          });
-
-          // Sort data by hour
-          const sortedData = Object.values(hourlyData).sort((a, b) => {
-            const hourA = parseInt(a.label.split(':')[0]);
-            const hourB = parseInt(b.label.split(':')[0]);
-            return hourA - hourB;
-          });
-
-          setData(sortedData);
+          chartData = createHourlyData(records);
         } else {
-          // Process daily data for 7d and 30d views
-          const dailyData: { [key: string]: { 
-            power: number[],
-            water: number[],
-            feed: number[],
-            date: Date 
-          }} = {};
-
-          // Solo procesar los registros que tienen datos
-          consumptionData.forEach(record => {
-            const date = new Date(record.fecha_hora);
-            if (date >= startDate && date <= now) {
-              const dayKey = date.toISOString().split('T')[0];
-              if (!dailyData[dayKey]) {
-                dailyData[dayKey] = {
-                  power: [],
-                  water: [],
-                  feed: [],
-                  date: new Date(dayKey)
-                };
-              }
-              
-              if (record.kwh !== null) dailyData[dayKey].power.push(record.kwh);
-              if (record.cantidad_agua !== null) dailyData[dayKey].water.push(record.cantidad_agua);
-              if (record.cantidad_alimento !== null) dailyData[dayKey].feed.push(record.cantidad_alimento);
-            }
-          });
-
-          // Calculate daily averages only for days with data
-          const averagedData = Object.entries(dailyData)
-            .filter(([_, values]) => values.power.length > 0 || values.water.length > 0 || values.feed.length > 0)
-            .map(([dayKey, values]) => {
-              const avgPower = values.power.length > 0 
-                ? values.power.reduce((a, b) => a + b, 0) / values.power.length 
-                : null;
-              const avgWater = values.water.length > 0
-                ? values.water.reduce((a, b) => a + b, 0) / values.water.length
-                : null;
-              const avgFeed = values.feed.length > 0
-                ? values.feed.reduce((a, b) => a + b, 0) / values.feed.length
-                : null;
-
-              return {
-                label: values.date.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit' }),
-                tooltipLabel: values.date.toLocaleDateString('es-ES', { 
-                  weekday: 'long', 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric' 
-                }),
-                power: avgPower,
-                water: avgWater,
-                feed: avgFeed
-              };
-            });
-
-          // Sort by date
-          const sortedData = averagedData.sort((a, b) => {
-            const dateA = new Date(Object.keys(dailyData).find(key => 
-              dailyData[key].date.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit' }) === a.label
-            ) || '');
-            const dateB = new Date(Object.keys(dailyData).find(key => 
-              dailyData[key].date.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit' }) === b.label
-            ) || '');
-            return dateA.getTime() - dateB.getTime();
-          });
-
-          setData(sortedData);
+          chartData = createDailyData(records);
         }
+        
+        setData(chartData);
       } catch (error) {
-        console.error('Error fetching consumption data:', error);
+        console.error("Error fetching consumption data:", error);
       }
     };
 
     fetchData();
-    // Update every 5 minutes
-    const intervalId = setInterval(fetchData, 5 * 60 * 1000);
-    return () => clearInterval(intervalId);
-  }, [timeRange]);
-  
+    const interval = setInterval(fetchData, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [timeRange, currentLote]);
+
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -169,7 +144,7 @@ const ConsumptionChart = () => {
               {timeRange === '24h' ? 'Por hora' : 'Promedio diario'} de energía y agua
             </CardDescription>
           </div>
-          
+
           <Select value={timeRange} onValueChange={setTimeRange}>
             <SelectTrigger className="w-28">
               <SelectValue placeholder="Período" />
@@ -182,53 +157,49 @@ const ConsumptionChart = () => {
           </Select>
         </div>
       </CardHeader>
-      
+
       <CardContent>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="label"
-                interval="preserveStartEnd"
-              />
-              <YAxis 
-                yAxisId="left" 
-                orientation="left" 
+              <XAxis dataKey="label" />
+              <YAxis
+                yAxisId="left"
+                orientation="left"
                 stroke="#0EA5E9"
-                tickFormatter={(value) => value?.toFixed(2) ?? 'N/A'}
+                tickFormatter={(v) => v?.toFixed(2) ?? 'N/A'}
               />
-              <YAxis 
-                yAxisId="right" 
-                orientation="right" 
+              <YAxis
+                yAxisId="right"
+                orientation="right"
                 stroke="#10B981"
-                tickFormatter={(value) => value?.toFixed(2) ?? 'N/A'}
+                tickFormatter={(v) => v?.toFixed(2) ?? 'N/A'}
               />
-              <Tooltip 
+              <Tooltip
                 formatter={(value: any) => value !== null ? Number(value).toFixed(2) : 'N/A'}
-                labelFormatter={(label: string, payload: any[]) => {
-                  if (payload.length > 0 && payload[0].payload.tooltipLabel) {
-                    return payload[0].payload.tooltipLabel;
-                  }
-                  return label;
-                }}
+                labelFormatter={(label, payload) =>
+                  payload.length > 0 && payload[0].payload.tooltipLabel
+                    ? payload[0].payload.tooltipLabel
+                    : label
+                }
               />
               <Legend />
-              <Line 
+              <Line
                 yAxisId="left"
-                type="monotone" 
-                dataKey="power" 
-                name="Energía (kW)" 
-                stroke="#0EA5E9" 
+                type="monotone"
+                dataKey="power"
+                name="Energía (kW)"
+                stroke="#0EA5E9"
                 strokeWidth={2}
                 dot={{ r: 4 }}
               />
-              <Line 
+              <Line
                 yAxisId="right"
-                type="monotone" 
-                dataKey="water" 
-                name="Agua (L)" 
-                stroke="#10B981" 
+                type="monotone"
+                dataKey="water"
+                name="Agua (L)"
+                stroke="#10B981"
                 strokeWidth={2}
                 dot={{ r: 4 }}
               />
