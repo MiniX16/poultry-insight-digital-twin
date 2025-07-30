@@ -48,12 +48,31 @@ const ConsumptionChart = () => {
       water: null
     }));
 
+    // Collect all values for each hour
+    const hourlyValues: Record<number, { power: number[], water: number[] }> = {};
+
     records.forEach(record => {
       const date = new Date(record.fecha_hora);
       const hour = date.getHours();
-      if (hourlyData[hour]) {
-        hourlyData[hour].power = record.kwh;
-        hourlyData[hour].water = record.cantidad_agua;
+      
+      if (!hourlyValues[hour]) {
+        hourlyValues[hour] = { power: [], water: [] };
+      }
+      
+      if (record.kwh !== null) hourlyValues[hour].power.push(record.kwh);
+      if (record.cantidad_agua !== null) hourlyValues[hour].water.push(record.cantidad_agua);
+    });
+
+    // Calculate averages for each hour
+    Object.entries(hourlyValues).forEach(([hour, values]) => {
+      const hourIndex = parseInt(hour);
+      if (hourlyData[hourIndex]) {
+        hourlyData[hourIndex].power = values.power.length > 0 
+          ? values.power.reduce((a, b) => a + b, 0) / values.power.length 
+          : null;
+        hourlyData[hourIndex].water = values.water.length > 0 
+          ? values.water.reduce((a, b) => a + b, 0) / values.water.length 
+          : null;
       }
     });
 
@@ -167,13 +186,13 @@ const ConsumptionChart = () => {
               <YAxis
                 yAxisId="left"
                 orientation="left"
-                stroke="#0EA5E9"
+                stroke="#10B981"
                 tickFormatter={(v) => v?.toFixed(2) ?? 'N/A'}
               />
               <YAxis
                 yAxisId="right"
                 orientation="right"
-                stroke="#10B981"
+                stroke="#0EA5E9"
                 tickFormatter={(v) => v?.toFixed(2) ?? 'N/A'}
               />
               <Tooltip
@@ -190,7 +209,7 @@ const ConsumptionChart = () => {
                 type="monotone"
                 dataKey="power"
                 name="Energía (kW)"
-                stroke="#0EA5E9"
+                stroke="#10B981"
                 strokeWidth={2}
                 dot={{ r: 4 }}
               />
@@ -199,7 +218,7 @@ const ConsumptionChart = () => {
                 type="monotone"
                 dataKey="water"
                 name="Agua (L)"
-                stroke="#10B981"
+                stroke="#0EA5E9"
                 strokeWidth={2}
                 dot={{ r: 4 }}
               />
