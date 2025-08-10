@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
+import { useLote } from '@/context/LoteContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { ArrowDown } from 'lucide-react';
-import { mortalidadService } from '@/lib/services/mortalidadService';
-import { loteService } from '@/lib/services/loteService';
 import LoteSelector from '@/components/LoteSelector';
+import { mortalidadService } from '@/lib/services/mortalidadService';
 
 interface MortalityData {
   date: string;
@@ -14,10 +14,6 @@ interface MortalityData {
   percentage: number;
 }
 
-interface ZoneMortality {
-  zone: string;
-  count: number;
-}
 
 interface CauseData {
   name: string;
@@ -26,21 +22,56 @@ interface CauseData {
 }
 
 const MortalityPage = () => {
+  // State
   const [mortalityData, setMortalityData] = useState<MortalityData[]>([]);
-  const [zoneData, setZoneData] = useState<ZoneMortality[]>([]);
   const [causeData, setCauseData] = useState<CauseData[]>([]);
-  const [currentLote, setCurrentLote] = useState<any>(null);
-  const [totalBirds, setTotalBirds] = useState<number>(0);
+  const [stats, setStats] = useState({
+    total: { count: 0, percentage: 0 },
+    avgDaily: 0,
+    weekly: { count: 0, percentage: 0 },
+    viability: 0
+  });
+  const { currentLote } = useLote();
 
-  // El estado y la lógica de lotes ahora están en LoteSelector
+  // Fetch mortality data
 
   useEffect(() => {
     const fetchMortalityData = async () => {
       if (!currentLote) return;
+      
       try {
-        // Get mortality data for el lote seleccionado
+        // --- DATE RANGES ---
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const fifteenDaysAgo = new Date(today);
+        fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15);
+        const sevenDaysAgo = new Date(today);
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        
+        // Date strings for API calls
+        const pad = n => n.toString().padStart(2, '0');
+        const getLocalDateString = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        const todayStr = getLocalDateString(today);
+        const fifteenDaysAgoStr = getLocalDateString(fifteenDaysAgo);
+        const sevenDaysAgoStr = getLocalDateString(sevenDaysAgo);
+        
+        // --- FETCH ALL MORTALITY DATA ---
         const mortalityRecords = await mortalidadService.getMortalidadesByLote(currentLote.lote_id);
-        // Process daily mortality data
+        
+        // --- GET SUMMARY DATA ---
+        const resumen = await mortalidadService.getResumenMortalidad(
+          currentLote.lote_id,
+          fifteenDaysAgoStr,
+          todayStr
+        );
+        
+        // --- GET WEEKLY DATA ---
+        const weeklyResumen = await mortalidadService.getResumenMortalidad(
+          currentLote.lote_id,
+          sevenDaysAgoStr,
+          todayStr
+        );
+        // --- PROCESS DAILY DATA ---
         const dailyData = mortalityRecords.reduce((acc: any, record: any) => {
           const date = new Date(record.fecha);
           const dateStr = date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
@@ -55,51 +86,51 @@ const MortalityPage = () => {
           acc[dateStr].percentage = Number(((acc[dateStr].count / currentLote.cantidad_inicial) * 100).toFixed(2));
           return acc;
         }, {});
+        
+        // --- SET MORTALITY DATA ---
         setMortalityData(Object.values(dailyData));
-        // Process mortality by cause
-        const causeBreakdown = mortalityRecords.reduce((acc: any, record: any) => {
-          if (!acc[record.causa]) {
-            acc[record.causa] = 0;
-          }
-          acc[record.causa] += record.cantidad;
-          return acc;
-        }, {});
+        // --- PROCESS MORTALITY BY CAUSE ---
         const colors = ['#EF4444', '#F59E0B', '#8B5CF6', '#10B981', '#6B7280'];
-        setCauseData(Object.entries(causeBreakdown).map(([name, value], index) => ({
+        setCauseData(Object.entries(resumen.porCausa).map(([name, value], index) => ({
           name,
           value: value as number,
           color: colors[index % colors.length]
         })));
-        // For zone data, we'll need to process based on the observaciones field
-        const zoneBreakdown = mortalityRecords.reduce((acc: any, record: any) => {
-          const zone = record.observaciones?.match(/Zona: ([A-C][1-3])/)?.[1] || 'N/A';
-          if (!acc[zone]) {
-            acc[zone] = 0;
-          }
-          acc[zone] += record.cantidad;
-          return acc;
-        }, {});
-        setZoneData(Object.entries(zoneBreakdown).map(([zone, count]) => ({
-          zone,
-          count: count as number
-        })));
+        
+        // --- CALCULATE VIABILITY RATE ---
+        const totalMortality = resumen.totalMortalidad;
+        const remainingBirds = currentLote.cantidad_inicial - totalMortality;
+        const currentViability = (remainingBirds / currentLote.cantidad_inicial) * 100;
+        
+        // --- SET STATS ---
+        setStats({
+          total: {
+            count: resumen.totalMortalidad,
+            percentage: resumen.porcentajeMortalidad
+          },
+          avgDaily: resumen.promedioMortalidadDiario,
+          weekly: {
+            count: weeklyResumen.totalMortalidad,
+            percentage: weeklyResumen.porcentajeMortalidad
+          },
+          viability: currentViability
+        });
       } catch (error) {
         console.error('Error fetching mortality data:', error);
       }
     };
+    
     fetchMortalityData();
+    const intervalId = setInterval(fetchMortalityData, 60 * 1000);
+    return () => clearInterval(intervalId);
   }, [currentLote]);
   
-  // Calculate totals from real data
-  const totalMortality = mortalityData.reduce((sum, day) => sum + day.count, 0);
-  const avgDailyMortality = mortalityData.length > 0 ? (totalMortality / mortalityData.length).toFixed(1) : '0';
-  const accumulatedPercentage = totalBirds > 0 ? ((totalMortality / totalBirds) * 100).toFixed(2) : '0';
   
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Mortandad</h1>
-        <LoteSelector currentLote={currentLote} setCurrentLote={setCurrentLote} />
+        <LoteSelector />
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -110,8 +141,8 @@ const MortalityPage = () => {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-center">
-              <span className="text-3xl font-bold text-farm-red">{totalMortality} aves</span>
-              <span className="text-sm text-muted-foreground mt-1">{accumulatedPercentage}% del lote</span>
+              <span className="text-3xl font-bold text-farm-red">{stats.total.count} aves</span>
+              <span className="text-sm text-muted-foreground mt-1">{stats.total.percentage.toFixed(2)}% del lote</span>
             </div>
           </CardContent>
         </Card>
@@ -123,7 +154,7 @@ const MortalityPage = () => {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-center">
-              <span className="text-3xl font-bold text-farm-orange">{avgDailyMortality}</span>
+              <span className="text-3xl font-bold text-farm-orange">{stats.avgDaily.toFixed(1)}</span>
               <span className="text-sm text-muted-foreground mt-1">aves por día</span>
             </div>
           </CardContent>
@@ -136,8 +167,8 @@ const MortalityPage = () => {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-center">
-              <span className="text-3xl font-bold text-farm-blue">87 aves</span>
-              <span className="text-sm text-muted-foreground mt-1">0.58% del lote</span>
+              <span className="text-3xl font-bold text-farm-blue">{stats.weekly.count} aves</span>
+              <span className="text-sm text-muted-foreground mt-1">{stats.weekly.percentage.toFixed(2)}% del lote</span>
             </div>
           </CardContent>
         </Card>
@@ -149,14 +180,14 @@ const MortalityPage = () => {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-center">
-              <span className="text-3xl font-bold text-farm-green">97.1%</span>
-              <span className="text-sm text-muted-foreground mt-1">proyección al día 42</span>
+              <span className="text-3xl font-bold text-farm-green">{stats.viability.toFixed(1)}%</span>
+              <span className="text-sm text-muted-foreground mt-1">viabilidad actual</span>
             </div>
           </CardContent>
         </Card>
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Evolución de Mortandad Diaria</CardTitle>
@@ -187,27 +218,6 @@ const MortalityPage = () => {
                     strokeWidth={2}
                   />
                 </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Distribución por Zonas</CardTitle>
-            <CardDescription>Mapa de calor</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={zoneData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="zone" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="count" name="Mortandad" fill="#EF4444" />
-                </BarChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
