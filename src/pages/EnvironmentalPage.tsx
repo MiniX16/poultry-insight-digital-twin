@@ -6,7 +6,7 @@ import TemperatureMap from '@/components/dashboard/TemperatureMap';
 import EnvironmentalFactors from '@/components/dashboard/EnvironmentalFactors';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { medicionAmbientalService } from '@/lib/services/medicionAmbientalService';
-import { loteService } from '@/lib/services/loteService';
+import { useLote } from '@/context/LoteContext';
 import LoteSelector from '@/components/LoteSelector';
 
 interface EnvironmentalData {
@@ -19,22 +19,30 @@ const EnvironmentalPage = () => {
   const [humidityData, setHumidityData] = useState<EnvironmentalData[]>([]);
   const [co2Data, setCo2Data] = useState<EnvironmentalData[]>([]);
   const [nh3Data, setNh3Data] = useState<EnvironmentalData[]>([]);
-  const [currentLote, setCurrentLote] = useState<any>(null);
-
-  // El estado y la lógica de lotes ahora están en LoteSelector
+  const { currentLote } = useLote();
 
   useEffect(() => {
     const fetchEnvData = async () => {
       if (!currentLote) return;
       try {
-        // Get last 24 hours of environmental data
-        const endDate = new Date();
-        const startDate = new Date(endDate.getTime() - 24 * 60 * 60 * 1000);
+        // Base dates - following Dashboard pattern
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        
+        // Date strings for API calls
+        const pad = n => n.toString().padStart(2, '0');
+        const getLocalDateString = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        const todayStr = getLocalDateString(today);
+        const tomorrowStr = getLocalDateString(tomorrow);
+        
         const measurements = await medicionAmbientalService.getMedicionesByLoteAndRango(
           currentLote.lote_id,
-          startDate.toISOString(),
-          endDate.toISOString()
+          todayStr + 'T00:00:00',
+          tomorrowStr + 'T00:00:00'
         );
+        
         // Process the data for each environmental factor
         const processedData = measurements.reduce((acc: any, record: any) => {
           const time = new Date(record.fecha_hora).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
@@ -64,6 +72,7 @@ const EnvironmentalPage = () => {
           }
           return acc;
         }, {});
+        
         setTemperatureData(processedData.temperature || []);
         setHumidityData(processedData.humidity || []);
         setCo2Data(processedData.co2 || []);
@@ -72,14 +81,17 @@ const EnvironmentalPage = () => {
         console.error('Error fetching environmental data:', error);
       }
     };
+    
     fetchEnvData();
+    const intervalId = setInterval(fetchEnvData, 60 * 1000);
+    return () => clearInterval(intervalId);
   }, [currentLote]);
   
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Ambiente</h1>
-        <LoteSelector currentLote={currentLote} setCurrentLote={setCurrentLote} />
+        <LoteSelector />
       </div>
       
       <Tabs defaultValue="temperature" className="space-y-4">
