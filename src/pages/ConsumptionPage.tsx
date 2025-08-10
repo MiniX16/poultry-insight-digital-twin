@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
+import { useLote } from '@/context/LoteContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { PowerIcon, Droplets } from 'lucide-react';
-import { consumoService } from '@/lib/services/consumoService';
-import { loteService } from '@/lib/services/loteService';
-import { medicionAmbientalService } from '@/lib/services/medicionAmbientalService';
 import LoteSelector from '@/components/LoteSelector';
+import { consumoService } from '@/lib/services/consumoService';
+import { medicionAmbientalService } from '@/lib/services/medicionAmbientalService';
+import { alimentacionService } from '@/lib/services/alimentacionService';
 
 interface ConsumptionData {
   date: string;
@@ -28,21 +29,48 @@ interface ConsumptionBreakdown {
 }
 
 const ConsumptionPage = () => {
+  // State
   const [hourlyData, setHourlyData] = useState<HourlyData[]>([]);
   const [dailyData, setDailyData] = useState<ConsumptionData[]>([]);
   const [electricBreakdown, setElectricBreakdown] = useState<ConsumptionBreakdown[]>([]);
-  const [currentLote, setCurrentLote] = useState<any>(null);
-  const [birdCount, setBirdCount] = useState<number>(0);
+  const [stats, setStats] = useState({
+    todayElectricity: 0,
+    todayWater: 0,
+    avgElectricity: 0,
+    avgWater: 0,
+    electricityPerBird: 0,
+    waterPerBird: 0,
+    waterFoodRatio: 0,
+    totalCost: 0,
+    hourlyRate: 0
+  });
+  const { currentLote } = useLote();
 
-  // El estado y la lógica de lotes ahora están en LoteSelector
+  // Fetch consumption data
 
   useEffect(() => {
     const fetchConsumptionData = async () => {
       if (!currentLote) return;
+      
       try {
-        // Get consumption data for el lote seleccionado
+        // --- DATE RANGES ---
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const fourteenDaysAgo = new Date(today);
+        fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+        
+        // Date strings for API calls
+        const pad = n => n.toString().padStart(2, '0');
+        const getLocalDateString = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        const todayStr = getLocalDateString(today);
+        const tomorrowStr = getLocalDateString(tomorrow);
+        const fourteenDaysAgoStr = getLocalDateString(fourteenDaysAgo);
+        
+        // --- FETCH CONSUMPTION DATA ---
         const consumptionRecords = await consumoService.getConsumosByLote(currentLote.lote_id);
-        // Process daily consumption data
+        // --- PROCESS DAILY CONSUMPTION DATA ---
         const dailyConsumption = consumptionRecords.reduce((acc: any, record: any) => {
           const date = new Date(record.fecha_hora);
           const dayName = date.toLocaleDateString('es-ES', { weekday: 'short' });
@@ -52,71 +80,127 @@ const ConsumptionPage = () => {
             acc[dateKey] = {
               date: dateKey,
               electricity: 0,
-              water: record.cantidad_agua
+              water: 0
             };
           }
-          acc[dateKey].water += record.cantidad_agua;
+          acc[dateKey].electricity += record.kwh || 0;
+          acc[dateKey].water += record.cantidad_agua || 0;
           return acc;
         }, {});
-        setDailyData(Object.values(dailyConsumption));
-        // Get environmental measurements for temperature data
-        const today = new Date();
+        
+        const processedDailyData = Object.values(dailyConsumption);
+        
+        // --- SET DAILY DATA ---
+        setDailyData(processedDailyData);
+        // --- FETCH TODAY'S HOURLY DATA ---
+        const todayConsumption = consumptionRecords.filter(record => {
+          const recordDate = new Date(record.fecha_hora);
+          return getLocalDateString(recordDate) === todayStr;
+        });
+        
         const measurements = await medicionAmbientalService.getMedicionesByLoteAndRango(
           currentLote.lote_id,
-          new Date(today.setHours(0, 0, 0, 0)).toISOString(),
-          new Date(today.setHours(23, 59, 59, 999)).toISOString()
+          todayStr + 'T00:00:00',
+          tomorrowStr + 'T00:00:00'
         );
-        // Process hourly data
-        const hourlyMeasurements = measurements.reduce((acc: any, record: any) => {
-          const hour = new Date(record.fecha_hora).getHours();
-          const hourKey = `${hour}:00`;
-          if (!acc[hourKey]) {
-            acc[hourKey] = {
-              hour: hourKey,
-              usage: 0,
-              temperature: record.temperatura
-            };
-          }
-          acc[hourKey].usage = Math.round(record.temperatura * 0.5);
-          return acc;
-        }, {});
-        setHourlyData(Object.values(hourlyMeasurements));
-        setElectricBreakdown([
-          { name: 'Ventilación', value: 42, color: '#3B82F6' },
-          { name: 'Iluminación', value: 18, color: '#F59E0B' },
-          { name: 'Alimentación', value: 23, color: '#10B981' },
-          { name: 'Refrigeración', value: 12, color: '#8B5CF6' },
-          { name: 'Otros', value: 5, color: '#6B7280' },
-        ]);
+        // --- PROCESS HOURLY DATA ---
+        const hourlyUsage = Array.from({ length: 24 }, (_, hour) => {
+          const hourStr = `${hour.toString().padStart(2, '0')}:00`;
+          
+          // Get consumption for this hour
+          const hourConsumption = todayConsumption.filter(record => {
+            const recordHour = new Date(record.fecha_hora).getHours();
+            return recordHour === hour;
+          });
+          
+          // Get temperature for this hour
+          const hourMeasurements = measurements.filter(record => {
+            const recordHour = new Date(record.fecha_hora).getHours();
+            return recordHour === hour;
+          });
+          
+          const totalUsage = hourConsumption.reduce((sum, record) => sum + (record.kwh || 0), 0);
+          const avgTemp = hourMeasurements.length > 0 
+            ? hourMeasurements.reduce((sum, record) => sum + record.temperatura, 0) / hourMeasurements.length 
+            : 0;
+            
+          return {
+            hour: hourStr,
+            usage: totalUsage,
+            temperature: avgTemp
+          };
+        });
+        
+        // --- SET HOURLY DATA ---
+        setHourlyData(hourlyUsage);
+        // --- CALCULATE ELECTRICITY BREAKDOWN ---
+        // This could be based on equipment data, for now use reasonable estimates
+        const totalElectricity = processedDailyData.reduce((sum: any, day: any) => sum + day.electricity, 0);
+        if (totalElectricity > 0) {
+          setElectricBreakdown([
+            { name: 'Ventilación', value: 42, color: '#3B82F6' },
+            { name: 'Iluminación', value: 18, color: '#F59E0B' },
+            { name: 'Alimentación', value: 23, color: '#10B981' },
+            { name: 'Refrigeración', value: 12, color: '#8B5CF6' },
+            { name: 'Otros', value: 5, color: '#6B7280' },
+          ]);
+        }
+        
+        // --- FETCH FEEDING DATA FOR WATER/FOOD RATIO ---
+        const { registros: feedingRecords } = await alimentacionService.getResumenAlimentacion(
+          currentLote.lote_id,
+          todayStr,
+          todayStr
+        );
+        
+        // --- CALCULATE STATS ---
+        const todayData = processedDailyData.find((day: any) => day.date.includes(today.getDate().toString().padStart(2, '0'))) || { electricity: 0, water: 0 };
+        const avgElectricity = processedDailyData.length > 0 
+          ? processedDailyData.reduce((sum: any, day: any) => sum + day.electricity, 0) / processedDailyData.length 
+          : 0;
+        const avgWater = processedDailyData.length > 0 
+          ? processedDailyData.reduce((sum: any, day: any) => sum + day.water, 0) / processedDailyData.length 
+          : 0;
+        
+        const birdCount = currentLote.cantidad_inicial || 1;
+        const electricityPerBird = (todayData.electricity / birdCount) * 1000; // Wh per bird
+        const waterPerBird = todayData.water / birdCount;
+        
+        const totalFeedToday = feedingRecords.reduce((sum: any, record: any) => sum + (record.cantidad_suministrada || 0), 0);
+        const waterFoodRatio = totalFeedToday > 0 ? todayData.water / totalFeedToday : 0;
+        
+        const electricityRate = 0.15; // €/kWh
+        const totalCost = avgElectricity * electricityRate;
+        const hourlyRate = avgElectricity / 24;
+        
+        // --- SET STATS ---
+        setStats({
+          todayElectricity: Math.round(todayData.electricity),
+          todayWater: Math.round(todayData.water),
+          avgElectricity: Math.round(avgElectricity),
+          avgWater: Math.round(avgWater),
+          electricityPerBird: Math.round(electricityPerBird * 10) / 10,
+          waterPerBird: Math.round(waterPerBird * 100) / 100,
+          waterFoodRatio: Math.round(waterFoodRatio * 100) / 100,
+          totalCost: Math.round(totalCost * 100) / 100,
+          hourlyRate: Math.round(hourlyRate * 100) / 100
+        });
       } catch (error) {
         console.error('Error fetching consumption data:', error);
       }
     };
+    
     fetchConsumptionData();
+    const intervalId = setInterval(fetchConsumptionData, 60 * 1000);
+    return () => clearInterval(intervalId);
   }, [currentLote]);
   
-  // Calculate today's and average values
-  const todayData = dailyData[dailyData.length - 1] || { electricity: 0, water: 0 };
-  const todayElectricity = todayData.electricity;
-  const todayWater = todayData.water;
-  
-  const avgElectricity = Math.round(
-    dailyData.reduce((sum, day) => sum + day.electricity, 0) / (dailyData.length || 1)
-  );
-  
-  const avgWater = Math.round(
-    dailyData.reduce((sum, day) => sum + day.water, 0) / (dailyData.length || 1)
-  );
-  
-  // Calculate per-bird metrics
-  const electricityPerBird = birdCount ? ((todayElectricity / birdCount) * 1000).toFixed(1) : '0'; // Wh per bird
-  const waterPerBird = birdCount ? (todayWater / birdCount).toFixed(2) : '0';
   
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Consumos</h1>
-        <LoteSelector currentLote={currentLote} setCurrentLote={setCurrentLote} />
+        <LoteSelector />
       </div>
       
       <Tabs defaultValue="electricity" className="space-y-4">
@@ -134,10 +218,10 @@ const ConsumptionPage = () => {
               </CardHeader>
               <CardContent>
                 <div className="flex flex-col items-center">
-                  <span className="text-3xl font-bold text-farm-purple">{todayElectricity} kWh</span>
+                  <span className="text-3xl font-bold text-farm-purple">{stats.todayElectricity} kWh</span>
                   <span className="text-sm text-muted-foreground mt-1">
-                    {todayElectricity > avgElectricity ? '+' : ''}
-                    {todayElectricity - avgElectricity} kWh vs promedio
+                    {stats.todayElectricity > stats.avgElectricity ? '+' : ''}
+                    {stats.todayElectricity - stats.avgElectricity} kWh vs promedio
                   </span>
                 </div>
               </CardContent>
@@ -150,8 +234,8 @@ const ConsumptionPage = () => {
               </CardHeader>
               <CardContent>
                 <div className="flex flex-col items-center">
-                  <span className="text-3xl font-bold text-farm-blue">{avgElectricity} kWh</span>
-                  <span className="text-sm text-muted-foreground mt-1">14.6 kWh/h promedio</span>
+                  <span className="text-3xl font-bold text-farm-blue">{stats.avgElectricity} kWh</span>
+                  <span className="text-sm text-muted-foreground mt-1">{stats.hourlyRate} kWh/h promedio</span>
                 </div>
               </CardContent>
             </Card>
@@ -163,7 +247,7 @@ const ConsumptionPage = () => {
               </CardHeader>
               <CardContent>
                 <div className="flex flex-col items-center">
-                  <span className="text-3xl font-bold text-farm-teal">{electricityPerBird} Wh</span>
+                  <span className="text-3xl font-bold text-farm-teal">{stats.electricityPerBird} Wh</span>
                   <span className="text-sm text-muted-foreground mt-1">por ave</span>
                 </div>
               </CardContent>
@@ -176,7 +260,7 @@ const ConsumptionPage = () => {
               </CardHeader>
               <CardContent>
                 <div className="flex flex-col items-center">
-                  <span className="text-3xl font-bold text-farm-orange">€32.40</span>
+                  <span className="text-3xl font-bold text-farm-orange">€{stats.totalCost}</span>
                   <span className="text-sm text-muted-foreground mt-1">€0.15/kWh</span>
                 </div>
               </CardContent>
@@ -275,10 +359,10 @@ const ConsumptionPage = () => {
               </CardHeader>
               <CardContent>
                 <div className="flex flex-col items-center">
-                  <span className="text-3xl font-bold text-farm-teal">{todayWater} L</span>
+                  <span className="text-3xl font-bold text-farm-teal">{stats.todayWater} L</span>
                   <span className="text-sm text-muted-foreground mt-1">
-                    {todayWater > avgWater ? '+' : ''}
-                    {todayWater - avgWater} L vs promedio
+                    {stats.todayWater > stats.avgWater ? '+' : ''}
+                    {stats.todayWater - stats.avgWater} L vs promedio
                   </span>
                 </div>
               </CardContent>
@@ -291,8 +375,8 @@ const ConsumptionPage = () => {
               </CardHeader>
               <CardContent>
                 <div className="flex flex-col items-center">
-                  <span className="text-3xl font-bold text-farm-blue">{avgWater} L</span>
-                  <span className="text-sm text-muted-foreground mt-1">{(avgWater / 1000).toFixed(2)} m³/día</span>
+                  <span className="text-3xl font-bold text-farm-blue">{stats.avgWater} L</span>
+                  <span className="text-sm text-muted-foreground mt-1">{(stats.avgWater / 1000).toFixed(2)} m³/día</span>
                 </div>
               </CardContent>
             </Card>
@@ -304,7 +388,7 @@ const ConsumptionPage = () => {
               </CardHeader>
               <CardContent>
                 <div className="flex flex-col items-center">
-                  <span className="text-3xl font-bold text-farm-green">{waterPerBird} L</span>
+                  <span className="text-3xl font-bold text-farm-green">{stats.waterPerBird} L</span>
                   <span className="text-sm text-muted-foreground mt-1">por ave</span>
                 </div>
               </CardContent>
@@ -317,7 +401,7 @@ const ConsumptionPage = () => {
               </CardHeader>
               <CardContent>
                 <div className="flex flex-col items-center">
-                  <span className="text-3xl font-bold text-farm-orange">1.92</span>
+                  <span className="text-3xl font-bold text-farm-orange">{stats.waterFoodRatio}</span>
                   <span className="text-sm text-muted-foreground mt-1">litros/kg alimento</span>
                 </div>
               </CardContent>
@@ -407,7 +491,7 @@ const ConsumptionPage = () => {
                   <TableCell>{day.electricity}</TableCell>
                   <TableCell>{day.water}</TableCell>
                   <TableCell>{(day.electricity * 0.15).toFixed(2)}</TableCell>
-                  <TableCell>{(day.water / birdCount).toFixed(2)}</TableCell>
+                  <TableCell>{(day.water / (currentLote?.cantidad_inicial || 1)).toFixed(2)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
