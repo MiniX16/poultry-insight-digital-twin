@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
+import { useLote } from '@/context/LoteContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, AreaChart, Area } from 'recharts';
 import { Timer } from 'lucide-react';
-import { crecimientoService } from '@/lib/services/crecimientoService';
-import { loteService } from '@/lib/services/loteService';
-import { polloService } from '@/lib/services/polloService';
 import LoteSelector from '@/components/LoteSelector';
+import { crecimientoService } from '@/lib/services/crecimientoService';
+import { polloService } from '@/lib/services/polloService';
 
 interface GrowthData {
   day: number;
@@ -23,83 +23,132 @@ interface WeightDistribution {
 }
 
 const GrowthPage = () => {
+  // State
   const [growthData, setGrowthData] = useState<GrowthData[]>([]);
   const [weightDistribution, setWeightDistribution] = useState<WeightDistribution[]>([]);
-  const [currentLote, setCurrentLote] = useState<any>(null);
+  const [stats, setStats] = useState({
+    currentWeight: 0,
+    avgDailyGain: 0,
+    uniformity: 0,
+    weeklyGrowthRate: 0
+  });
+  const { currentLote } = useLote();
 
-  // El estado y la lógica de lotes ahora están en LoteSelector
+  // Fetch growth data
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!currentLote) return;
+      
       try {
-        // Get todos los lotes
-        const lotes = await loteService.getAllLotes();
-        if (lotes.length > 0) {
-          setCurrentLote(lotes[0]);
-
-          // Get growth records for el primer lote
-          const growthRecords = await crecimientoService.getCrecimientosByLote(lotes[0].lote_id);
+        // --- FETCH GROWTH RECORDS ---
+        const growthRecords = await crecimientoService.getCrecimientosByLote(currentLote.lote_id);
           
-          // Process growth data
-          const processedGrowthData = growthRecords.map((record: any) => {
-            const recordDate = new Date(record.fecha);
-            const startDate = new Date(lotes[0].fecha_ingreso);
-            const dayDiff = Math.floor((recordDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-  
-            // Calculate ideal weight based on standard growth curve
-            // This is a simplified sigmoid function for ideal chicken growth
-  const maxWeight = 2800; // max weight in grams
-  const growthRate = 0.15;
-  const midpoint = 20; // day of fastest growth
-            const idealWeight = maxWeight / (1 + Math.exp(-growthRate * (dayDiff - midpoint)));
-    
-    // Calculate daily gain
-            const prevRecord = growthRecords.find((r: any) => {
-              const rDate = new Date(r.fecha);
-              const rDayDiff = Math.floor((rDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-              return rDayDiff === dayDiff - 1;
-            });
-
-            const dailyGain = prevRecord 
-              ? record.peso_promedio - prevRecord.peso_promedio
-              : record.peso_promedio; // For first day, gain equals weight
-
-            return {
-              day: dayDiff,
-              date: recordDate.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }),
-              ideal: Math.round(idealWeight),
-              actual: Math.round(record.peso_promedio),
-              gain: Math.round(dailyGain),
-            };
+        // --- PROCESS GROWTH DATA ---
+        const processedGrowthData = growthRecords.map((record: any) => {
+          const recordDate = new Date(record.fecha);
+          const startDate = new Date(currentLote.fecha_ingreso);
+          const dayDiff = Math.floor((recordDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+          // Calculate ideal weight based on standard growth curve
+          const maxWeight = 2800;
+          const growthRate = 0.15;
+          const midpoint = 20;
+          const idealWeight = maxWeight / (1 + Math.exp(-growthRate * (dayDiff - midpoint)));
+          // Calculate daily gain
+          const prevRecord = growthRecords.find((r: any) => {
+            const rDate = new Date(r.fecha);
+            const rDayDiff = Math.floor((rDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+            return rDayDiff === dayDiff - 1;
           });
 
-          setGrowthData(processedGrowthData.sort((a, b) => a.day - b.day));
+          const dailyGain = prevRecord 
+            ? record.peso_promedio - prevRecord.peso_promedio
+            : record.peso_promedio;
 
-          // Obtener los pesos reales de los pollos del lote
-          const pollos = await polloService.getPollosByLote(lotes[0].lote_id);
-          const pesos = pollos.map((p: any) => p.peso);
+          return {
+            day: dayDiff,
+            date: recordDate.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }),
+            ideal: Math.round(idealWeight),
+            actual: Math.round(record.peso_promedio),
+            gain: Math.round(dailyGain),
+          };
+        });
 
-          // Si hay datos de pesos, genera la curva suavizada (KDE)
-          if (pesos.length > 0) {
-            // KDE simple con ventana gaussiana
-            const minPeso = Math.min(...pesos);
-            const maxPeso = Math.max(...pesos);
-            const steps = 30;
-            const bandwidth = (maxPeso - minPeso) / 15 || 1; // Ajusta la suavidad
-            const kernel = (x: number) => (1 / Math.sqrt(2 * Math.PI)) * Math.exp(-0.5 * x * x);
-            const kde = (x: number) =>
-              pesos.reduce((sum, v) => sum + kernel((x - v) / bandwidth), 0) / (pesos.length * bandwidth);
-            const distribution = Array.from({ length: steps }, (_, i) => {
-              const weight = minPeso + ((maxPeso - minPeso) * i) / (steps - 1);
-              return {
-                weight,
-                frequency: kde(weight) * pesos.length // Escala para que sea comparable
-              };
-            });
-            setWeightDistribution(distribution);
-          } else {
-            setWeightDistribution([]);
-          }
+        const sortedGrowthData = processedGrowthData.sort((a, b) => a.day - b.day);
+        
+        // --- SET GROWTH DATA ---
+        setGrowthData(sortedGrowthData);
+
+        // --- FETCH INDIVIDUAL CHICKENS DATA ---
+        const pollos = await polloService.getPollosByLote(currentLote.lote_id);
+        const pesos = pollos.map((p: any) => p.peso);
+
+        // --- PROCESS WEIGHT DISTRIBUTION ---
+        if (pesos.length > 0) {
+          const minPeso = Math.min(...pesos);
+          const maxPeso = Math.max(...pesos);
+          const steps = 30;
+          const bandwidth = (maxPeso - minPeso) / 15 || 1;
+          const kernel = (x: number) => (1 / Math.sqrt(2 * Math.PI)) * Math.exp(-0.5 * x * x);
+          const kde = (x: number) =>
+            pesos.reduce((sum, v) => sum + kernel((x - v) / bandwidth), 0) / (pesos.length * bandwidth);
+          const distribution = Array.from({ length: steps }, (_, i) => {
+            const weight = minPeso + ((maxPeso - minPeso) * i) / (steps - 1);
+            return {
+              weight,
+              frequency: kde(weight) * pesos.length
+            };
+          });
+          
+          // --- SET WEIGHT DISTRIBUTION ---
+          setWeightDistribution(distribution);
+          
+          // --- CALCULATE UNIFORMITY ---
+          const avgWeight = pesos.reduce((sum, w) => sum + w, 0) / pesos.length;
+          const variance = pesos.reduce((sum, w) => sum + Math.pow(w - avgWeight, 2), 0) / pesos.length;
+          const standardDeviation = Math.sqrt(variance);
+          const coefficientOfVariation = (standardDeviation / avgWeight) * 100;
+          
+          // --- CALCULATE STATS ---
+          const currentWeight = sortedGrowthData[sortedGrowthData.length - 1]?.actual || 0;
+          const last7Days = sortedGrowthData.slice(-7);
+          const avgDailyGain = last7Days.length > 0 
+            ? last7Days.reduce((sum, day) => sum + day.gain, 0) / last7Days.length 
+            : 0;
+          
+          const weeklyGain = last7Days.length >= 2 
+            ? last7Days[last7Days.length - 1].actual - last7Days[0].actual 
+            : 0;
+          const weeklyIdealGain = last7Days.length >= 2
+            ? last7Days[last7Days.length - 1].ideal - last7Days[0].ideal
+            : 1;
+          const weeklyGrowthRate = weeklyIdealGain > 0 
+            ? ((weeklyGain - weeklyIdealGain) / weeklyIdealGain) * 100 
+            : 0;
+            
+          // --- SET STATS ---
+          setStats({
+            currentWeight,
+            avgDailyGain,
+            uniformity: coefficientOfVariation,
+            weeklyGrowthRate
+          });
+        } else {
+          setWeightDistribution([]);
+          
+          // Calculate basic stats without individual chicken data
+          const currentWeight = sortedGrowthData[sortedGrowthData.length - 1]?.actual || 0;
+          const last7Days = sortedGrowthData.slice(-7);
+          const avgDailyGain = last7Days.length > 0 
+            ? last7Days.reduce((sum, day) => sum + day.gain, 0) / last7Days.length 
+            : 0;
+            
+          setStats({
+            currentWeight,
+            avgDailyGain,
+            uniformity: 0,
+            weeklyGrowthRate: 0
+          });
         }
       } catch (error) {
         console.error('Error fetching growth data:', error);
@@ -107,13 +156,15 @@ const GrowthPage = () => {
     };
 
     fetchData();
-  }, []);
+    const intervalId = setInterval(fetchData, 60 * 1000);
+    return () => clearInterval(intervalId);
+  }, [currentLote]);
   
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Crecimiento</h1>
-        <LoteSelector currentLote={currentLote} setCurrentLote={setCurrentLote} />
+        <LoteSelector />
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -124,10 +175,10 @@ const GrowthPage = () => {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-center">
-              <span className="text-3xl font-bold text-farm-green">{growthData[growthData.length - 1]?.actual} g</span>
+              <span className="text-3xl font-bold text-farm-green">{stats.currentWeight} g</span>
               <span className="text-sm text-muted-foreground mt-1">
                 {growthData[growthData.length - 1]?.actual > growthData[growthData.length - 1]?.ideal ? '+' : ''}
-                {growthData[growthData.length - 1]?.actual - growthData[growthData.length - 1]?.ideal} g vs estándar
+                {(growthData[growthData.length - 1]?.actual || 0) - (growthData[growthData.length - 1]?.ideal || 0)} g vs estándar
               </span>
             </div>
           </CardContent>
@@ -140,8 +191,8 @@ const GrowthPage = () => {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-center">
-              <span className="text-3xl font-bold text-farm-blue">78.6 g</span>
-              <span className="text-sm text-muted-foreground mt-1">+3.2% vs estándar</span>
+              <span className="text-3xl font-bold text-farm-blue">{stats.avgDailyGain.toFixed(1)} g</span>
+              <span className="text-sm text-muted-foreground mt-1">promedio últimos 7 días</span>
             </div>
           </CardContent>
         </Card>
@@ -153,8 +204,8 @@ const GrowthPage = () => {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-center">
-              <span className="text-3xl font-bold text-farm-purple">{weightDistribution[Math.floor(weightDistribution.length / 2)]?.frequency.toFixed(2)}%</span>
-              <span className="text-sm text-muted-foreground mt-1">CV: {weightDistribution[Math.floor(weightDistribution.length / 2)]?.frequency.toFixed(2)}%</span>
+              <span className="text-3xl font-bold text-farm-purple">{stats.uniformity.toFixed(1)}%</span>
+              <span className="text-sm text-muted-foreground mt-1">CV del lote</span>
             </div>
           </CardContent>
         </Card>
@@ -166,7 +217,7 @@ const GrowthPage = () => {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-center">
-              <span className="text-3xl font-bold text-farm-orange">{growthData[growthData.length - 1]?.gain > 0 ? '+' : ''}{growthData[growthData.length - 1]?.gain.toFixed(1)}% vs estándar</span>
+              <span className="text-3xl font-bold text-farm-orange">{stats.weeklyGrowthRate > 0 ? '+' : ''}{stats.weeklyGrowthRate.toFixed(1)}%</span>
               <span className="text-sm text-muted-foreground mt-1">últimos 7 días</span>
             </div>
           </CardContent>
