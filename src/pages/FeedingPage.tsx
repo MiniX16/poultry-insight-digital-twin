@@ -6,6 +6,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { Layers3 } from 'lucide-react';
 import LoteSelector from '@/components/LoteSelector';
+import PageLoader from '@/components/ui/page-loader';
 import { consumoService } from '@/lib/services/consumoService';
 import { alimentacionService } from '@/lib/services/alimentacionService';
 import { crecimientoService } from '@/lib/services/crecimientoService';
@@ -35,6 +36,7 @@ const feedComposition = [
 
 const FeedingPage = () => {
   // State
+  const [isLoading, setIsLoading] = useState(true);
   const [feedingData, setFeedingData] = useState<FeedingData[]>([]);
   const [hourlyData, setHourlyData] = useState<HourlyData[]>([]);
   const [stats, setStats] = useState({
@@ -49,7 +51,12 @@ const FeedingPage = () => {
 
   useEffect(() => {
     const fetchFeedingData = async () => {
-      if (!currentLote) return;
+      if (!currentLote) {
+        setIsLoading(false);
+        return;
+      }
+      
+      setIsLoading(true);
       
       try {
         // --- DATE RANGES ---
@@ -172,6 +179,8 @@ const FeedingPage = () => {
         });
       } catch (error) {
         console.error('Error fetching feeding data:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
     
@@ -181,7 +190,9 @@ const FeedingPage = () => {
   }, [currentLote]);
 
   return (
-    <div className="space-y-6">
+    <>
+      {isLoading && <PageLoader message="Cargando datos de alimentación..." />}
+      <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Alimentación</h1>
         <LoteSelector />
@@ -358,6 +369,7 @@ const FeedingPage = () => {
         </Card>
       </div>
     </div>
+    </>
   );
 };
 

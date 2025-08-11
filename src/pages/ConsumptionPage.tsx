@@ -6,6 +6,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { PowerIcon, Droplets } from 'lucide-react';
 import LoteSelector from '@/components/LoteSelector';
+import PageLoader from '@/components/ui/page-loader';
 import { consumoService } from '@/lib/services/consumoService';
 import { medicionAmbientalService } from '@/lib/services/medicionAmbientalService';
 import { alimentacionService } from '@/lib/services/alimentacionService';
@@ -34,6 +35,7 @@ interface ConsumptionBreakdown {
 
 const ConsumptionPage = () => {
   // State
+  const [isLoading, setIsLoading] = useState(true);
   const [hourlyData, setHourlyData] = useState<HourlyData[]>([]);
   const [dailyData, setDailyData] = useState<ConsumptionData[]>([]);
   const [electricBreakdown, setElectricBreakdown] = useState<ConsumptionBreakdown[]>([]);
@@ -54,7 +56,12 @@ const ConsumptionPage = () => {
 
   useEffect(() => {
     const fetchConsumptionData = async () => {
-      if (!currentLote) return;
+      if (!currentLote) {
+        setIsLoading(false);
+        return;
+      }
+      
+      setIsLoading(true);
       
       try {
         // --- DATE RANGES ---
@@ -191,6 +198,8 @@ const ConsumptionPage = () => {
         });
       } catch (error) {
         console.error('Error fetching consumption data:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
     
@@ -201,7 +210,9 @@ const ConsumptionPage = () => {
   
   
   return (
-    <div className="space-y-6">
+    <>
+      {isLoading && <PageLoader message="Cargando datos de consumo..." />}
+      <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Consumos</h1>
         <LoteSelector />
@@ -503,6 +514,7 @@ const ConsumptionPage = () => {
         </CardContent>
       </Card>
     </div>
+    </>
   );
 };
 

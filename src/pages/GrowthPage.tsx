@@ -6,6 +6,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, AreaChart, Area } from 'recharts';
 import { Timer } from 'lucide-react';
 import LoteSelector from '@/components/LoteSelector';
+import PageLoader from '@/components/ui/page-loader';
 import { crecimientoService } from '@/lib/services/crecimientoService';
 import { polloService } from '@/lib/services/polloService';
 import type { Database } from '@/lib/database.types';
@@ -28,6 +29,7 @@ interface WeightDistribution {
 
 const GrowthPage = () => {
   // State
+  const [isLoading, setIsLoading] = useState(true);
   const [growthData, setGrowthData] = useState<GrowthData[]>([]);
   const [weightDistribution, setWeightDistribution] = useState<WeightDistribution[]>([]);
   const [stats, setStats] = useState({
@@ -42,7 +44,12 @@ const GrowthPage = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!currentLote) return;
+      if (!currentLote) {
+        setIsLoading(false);
+        return;
+      }
+      
+      setIsLoading(true);
       
       try {
         // --- FETCH GROWTH RECORDS ---
@@ -156,6 +163,8 @@ const GrowthPage = () => {
         }
       } catch (error) {
         console.error('Error fetching growth data:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -165,7 +174,9 @@ const GrowthPage = () => {
   }, [currentLote]);
   
   return (
-    <div className="space-y-6">
+    <>
+      {isLoading && <PageLoader message="Cargando datos de crecimiento..." />}
+      <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Crecimiento</h1>
         <LoteSelector />
@@ -361,6 +372,7 @@ const GrowthPage = () => {
         </Card>
       </div>
     </div>
+    </>
   );
 };
 

@@ -7,6 +7,7 @@ import GrowthChart from '@/components/dashboard/GrowthChart';
 import EnvironmentalFactors from '@/components/dashboard/EnvironmentalFactors';
 import { ThermometerSun, Droplets, ArrowDown, Timer, PowerIcon, Gauge } from 'lucide-react';
 import LoteSelector from '@/components/LoteSelector';
+import PageLoader from '@/components/ui/page-loader';
 import { medicionAmbientalService } from '@/lib/services/medicionAmbientalService';
 import { consumoService } from '@/lib/services/consumoService';
 import { mortalidadService } from '@/lib/services/mortalidadService';
@@ -22,6 +23,7 @@ const getAvg = (arr, key) => {
 
 const Dashboard = () => {
   // State
+  const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState({
     temperature: { value: '0.0', trend: 0 },
     water: { value: '0', trend: 0 },
@@ -35,7 +37,12 @@ const Dashboard = () => {
   // Fetch dashboard stats
   useEffect(() => {
     const fetchStats = async () => {
-      if (!currentLote) return;
+      if (!currentLote) {
+        setIsLoading(false);
+        return;
+      }
+      
+      setIsLoading(true);
       try {
         // Base dates
         const today = new Date();
@@ -124,6 +131,8 @@ const Dashboard = () => {
         });
       } catch (error) {
         console.error('Error fetching dashboard stats:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
     fetchStats();
@@ -133,7 +142,9 @@ const Dashboard = () => {
 
   // Render
   return (
-    <div className="space-y-6">
+    <>
+      {isLoading && <PageLoader message="Cargando datos del dashboard..." />}
+      <div className="space-y-6">
       <div className="flex items-center justify-between">
       <h1 className="text-2xl font-bold tracking-tight">Panel de Control</h1>
         <LoteSelector />
@@ -197,6 +208,7 @@ const Dashboard = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 

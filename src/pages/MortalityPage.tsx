@@ -6,6 +6,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { ArrowDown } from 'lucide-react';
 import LoteSelector from '@/components/LoteSelector';
+import PageLoader from '@/components/ui/page-loader';
 import { mortalidadService } from '@/lib/services/mortalidadService';
 import type { Database } from '@/lib/database.types';
 
@@ -26,6 +27,7 @@ interface CauseData {
 
 const MortalityPage = () => {
   // State
+  const [isLoading, setIsLoading] = useState(true);
   const [mortalityData, setMortalityData] = useState<MortalityData[]>([]);
   const [causeData, setCauseData] = useState<CauseData[]>([]);
   const [stats, setStats] = useState({
@@ -40,7 +42,12 @@ const MortalityPage = () => {
 
   useEffect(() => {
     const fetchMortalityData = async () => {
-      if (!currentLote) return;
+      if (!currentLote) {
+        setIsLoading(false);
+        return;
+      }
+      
+      setIsLoading(true);
       
       try {
         // --- DATE RANGES ---
@@ -120,6 +127,8 @@ const MortalityPage = () => {
         });
       } catch (error) {
         console.error('Error fetching mortality data:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
     
@@ -130,7 +139,9 @@ const MortalityPage = () => {
   
   
   return (
-    <div className="space-y-6">
+    <>
+      {isLoading && <PageLoader message="Cargando datos de mortalidad..." />}
+      <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Mortandad</h1>
         <LoteSelector />
@@ -307,6 +318,7 @@ const MortalityPage = () => {
         </Card>
       </div>
     </div>
+    </>
   );
 };
 

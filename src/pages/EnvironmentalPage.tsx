@@ -8,6 +8,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import { medicionAmbientalService } from '@/lib/services/medicionAmbientalService';
 import { useLote } from '@/context/LoteContext';
 import LoteSelector from '@/components/LoteSelector';
+import PageLoader from '@/components/ui/page-loader';
 import type { Database } from '@/lib/database.types';
 
 type MedicionAmbiental = Database['public']['Tables']['medicion_ambiental']['Row'];
@@ -18,6 +19,7 @@ interface EnvironmentalData {
 }
 
 const EnvironmentalPage = () => {
+  const [isLoading, setIsLoading] = useState(true);
   const [temperatureData, setTemperatureData] = useState<EnvironmentalData[]>([]);
   const [humidityData, setHumidityData] = useState<EnvironmentalData[]>([]);
   const [co2Data, setCo2Data] = useState<EnvironmentalData[]>([]);
@@ -26,7 +28,12 @@ const EnvironmentalPage = () => {
 
   useEffect(() => {
     const fetchEnvData = async () => {
-      if (!currentLote) return;
+      if (!currentLote) {
+        setIsLoading(false);
+        return;
+      }
+      
+      setIsLoading(true);
       try {
         // Base dates - following Dashboard pattern
         const today = new Date();
@@ -82,6 +89,8 @@ const EnvironmentalPage = () => {
         setNh3Data(processedData.nh3 || []);
       } catch (error) {
         console.error('Error fetching environmental data:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
     
@@ -91,7 +100,9 @@ const EnvironmentalPage = () => {
   }, [currentLote]);
   
   return (
-    <div className="space-y-6">
+    <>
+      {isLoading && <PageLoader message="Cargando datos ambientales..." />}
+      <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Ambiente</h1>
         <LoteSelector />
@@ -203,6 +214,7 @@ const EnvironmentalPage = () => {
         <EnvironmentalFactors />
       </div>
     </div>
+    </>
   );
 };
 
