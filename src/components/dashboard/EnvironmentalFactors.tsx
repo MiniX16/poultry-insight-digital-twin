@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLote } from '@/context/LoteContext';
+import { useNotifications } from '@/context/NotificationContext';
+import { useSettings } from '@/context/SettingsContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { medicionAmbientalService } from '@/lib/services/medicionAmbientalService';
 
@@ -20,46 +22,79 @@ const EnvironmentalFactors = () => {
     iluminacion: null
   });
   const { currentLote } = useLote();
+  const { checkThresholds } = useNotifications();
+  const { settings } = useSettings();
 
   useEffect(() => {
     const fetchData = async () => {
       if (!currentLote) return;
       try {
         const data = await medicionAmbientalService.getUltimaMedicionByLote(currentLote.lote_id);
-        setReadings({
+        const newReadings = {
           temperature: data.temperatura,
           humidity: data.humedad,
           co2: data.co2,
           nh3: data.amoniaco,
           iluminacion: data.iluminacion
-        });
+        };
+        setReadings(newReadings);
+        
+        // Check thresholds for notifications
+        if (settings.notifications) {
+          checkThresholds({
+            temperature: newReadings.temperature,
+            humidity: newReadings.humidity,
+            co2: newReadings.co2,
+            nh3: newReadings.nh3
+          });
+        }
       } catch (error) {
         console.error('Error fetching environmental data:', error);
       }
     };
 
     fetchData();
-  }, [currentLote]);
+    
+    // Set up interval to check environmental data
+    const intervalId = setInterval(fetchData, settings.refreshInterval * 1000);
+    return () => clearInterval(intervalId);
+  }, [currentLote, settings.refreshInterval, settings.notifications, checkThresholds]);
 
-  // Define rangos ideales para colorear
+  // Define rangos usando la configuración de umbrales
   const getStatusColor = (type: keyof EnvironmentalReadings) => {
     const value = readings[type];
     if (value === null) return 'bg-gray-200';
 
-    const ranges = {
-      temperature: { min: 20, max: 26 },
-      humidity: { min: 50, max: 70 },
-      co2: { max: 3000 },
-      nh3: { max: 25 },
-      iluminacion: { min: 20, max: 50 }
+    // Use settings thresholds for monitored environmental factors
+    const thresholdTypes: { [key in keyof EnvironmentalReadings]?: keyof typeof settings.notificationThresholds } = {
+      temperature: 'temperature',
+      humidity: 'humidity',
+      co2: 'co2',
+      nh3: 'nh3'
     };
 
-    const r = ranges[type];
-    if (!r) return 'bg-gray-200';
+    const thresholdType = thresholdTypes[type];
+    
+    if (thresholdType) {
+      const threshold = settings.notificationThresholds[thresholdType];
+      
+      // Check if value is outside the configured thresholds
+      if (value < threshold.min || value > threshold.max) {
+        return 'bg-red-400';
+      }
+      return 'bg-green-400';
+    }
 
-    if ('min' in r && 'max' in r && (value < r.min || value > r.max)) return 'bg-red-400';
-    if ('max' in r && value > r.max) return 'bg-red-400';
-    return 'bg-green-400';
+    // Fallback for iluminacion (not in notification thresholds)
+    if (type === 'iluminacion') {
+      const iluminacionRange = { min: 20, max: 50 };
+      if (value < iluminacionRange.min || value > iluminacionRange.max) {
+        return 'bg-red-400';
+      }
+      return 'bg-green-400';
+    }
+
+    return 'bg-gray-200';
   };
 
   const renderRow = (label: string, key: keyof EnvironmentalReadings, unit: string = '') => (

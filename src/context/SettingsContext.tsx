@@ -3,8 +3,17 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 interface SettingsState {
   refreshInterval: number; // in seconds
   theme: 'light' | 'dark' | 'auto';
-  temperatureUnit: 'celsius' | 'fahrenheit';
   notifications: boolean;
+  notificationThresholds: {
+    temperature: { min: number; max: number };
+    humidity: { min: number; max: number };
+    co2: { min: number; max: number };
+    nh3: { min: number; max: number };
+  };
+  thermalMapRange: {
+    minTemp: number; // °C for blue color
+    maxTemp: number; // °C for red color
+  };
 }
 
 interface SettingsContextType {
@@ -16,8 +25,17 @@ interface SettingsContextType {
 const defaultSettings: SettingsState = {
   refreshInterval: 60, // 60 seconds default
   theme: 'auto',
-  temperatureUnit: 'celsius',
   notifications: true,
+  notificationThresholds: {
+    temperature: { min: 18, max: 35 }, // °C
+    humidity: { min: 50, max: 75 }, // %
+    co2: { min: 0, max: 3000 }, // ppm
+    nh3: { min: 0, max: 25 }, // ppm
+  },
+  thermalMapRange: {
+    minTemp: 15, // °C for blue color
+    maxTemp: 40, // °C for red color
+  },
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);

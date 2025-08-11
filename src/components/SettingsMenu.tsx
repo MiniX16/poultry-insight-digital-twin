@@ -1,5 +1,5 @@
-import React from 'react';
-import { Settings, RefreshCw, Clock, Palette, Thermometer, Bell, RotateCcw } from 'lucide-react';
+import React, { useState } from 'react';
+import { Settings, RefreshCw, Clock, Palette, Bell, RotateCcw, AlertTriangle, Thermometer } from 'lucide-react';
 import { useSettings } from '@/context/SettingsContext';
 import {
   DropdownMenu,
@@ -14,9 +14,16 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 const SettingsMenu: React.FC = () => {
   const { settings, updateSetting, resetSettings } = useSettings();
+  const [isThresholdsOpen, setIsThresholdsOpen] = useState(false);
+  const [isThermalRangeOpen, setIsThermalRangeOpen] = useState(false);
+  const [tempThresholds, setTempThresholds] = useState(settings.notificationThresholds);
+  const [tempThermalRange, setTempThermalRange] = useState(settings.thermalMapRange);
 
   // Helper function to format refresh interval display
   const formatRefreshInterval = (seconds: number): string => {
@@ -42,10 +49,15 @@ const SettingsMenu: React.FC = () => {
     { value: 'auto', label: 'Automático' },
   ];
 
-  const temperatureUnitOptions = [
-    { value: 'celsius', label: 'Celsius (°C)' },
-    { value: 'fahrenheit', label: 'Fahrenheit (°F)' },
-  ];
+  const handleThresholdsUpdate = () => {
+    updateSetting('notificationThresholds', tempThresholds);
+    setIsThresholdsOpen(false);
+  };
+
+  const handleThermalRangeUpdate = () => {
+    updateSetting('thermalMapRange', tempThermalRange);
+    setIsThermalRangeOpen(false);
+  };
 
   return (
     <DropdownMenu>
@@ -122,36 +134,6 @@ const SettingsMenu: React.FC = () => {
           </DropdownMenuSubContent>
         </DropdownMenuSub>
 
-        {/* Temperature Unit */}
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger className="flex items-center gap-2">
-            <Thermometer className="h-4 w-4" />
-            <span>Temperatura</span>
-            <span className="ml-auto text-xs text-muted-foreground">
-              {settings.temperatureUnit === 'celsius' ? '°C' : '°F'}
-            </span>
-          </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent>
-            <DropdownMenuLabel className="flex items-center gap-2 text-xs">
-              <Thermometer className="h-3 w-3" />
-              Unidad de temperatura
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {temperatureUnitOptions.map((option) => (
-              <DropdownMenuItem
-                key={option.value}
-                onClick={() => updateSetting('temperatureUnit', option.value as 'celsius' | 'fahrenheit')}
-                className={settings.temperatureUnit === option.value ? 'bg-accent' : ''}
-              >
-                {option.label}
-                {settings.temperatureUnit === option.value && (
-                  <span className="ml-auto">✓</span>
-                )}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
-
         <DropdownMenuSeparator />
 
         {/* Toggle Settings */}
@@ -162,6 +144,229 @@ const SettingsMenu: React.FC = () => {
           </div>
           <Switch checked={settings.notifications} />
         </DropdownMenuItem>
+
+        {/* Notification Thresholds */}
+        {settings.notifications && (
+          <Dialog open={isThresholdsOpen} onOpenChange={setIsThresholdsOpen}>
+            <DialogTrigger asChild>
+              <DropdownMenuItem onSelect={(e) => e.preventDefault()} onClick={() => {
+                setTempThresholds(settings.notificationThresholds);
+                setIsThresholdsOpen(true);
+              }}>
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  <span>Configurar Umbrales</span>
+                </div>
+              </DropdownMenuItem>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Umbrales de Notificación</DialogTitle>
+                <DialogDescription>
+                  Configura los rangos para recibir alertas de factores ambientales
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                {/* Temperature */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Temperatura (°C)</Label>
+                  <div className="flex space-x-2">
+                    <div className="flex-1">
+                      <Label className="text-xs text-muted-foreground">Mínimo</Label>
+                      <Input
+                        type="number"
+                        value={tempThresholds.temperature.min}
+                        onChange={(e) => setTempThresholds(prev => ({
+                          ...prev,
+                          temperature: { ...prev.temperature, min: Number(e.target.value) }
+                        }))}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <Label className="text-xs text-muted-foreground">Máximo</Label>
+                      <Input
+                        type="number"
+                        value={tempThresholds.temperature.max}
+                        onChange={(e) => setTempThresholds(prev => ({
+                          ...prev,
+                          temperature: { ...prev.temperature, max: Number(e.target.value) }
+                        }))}
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Humidity */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Humedad (%)</Label>
+                  <div className="flex space-x-2">
+                    <div className="flex-1">
+                      <Label className="text-xs text-muted-foreground">Mínimo</Label>
+                      <Input
+                        type="number"
+                        value={tempThresholds.humidity.min}
+                        onChange={(e) => setTempThresholds(prev => ({
+                          ...prev,
+                          humidity: { ...prev.humidity, min: Number(e.target.value) }
+                        }))}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <Label className="text-xs text-muted-foreground">Máximo</Label>
+                      <Input
+                        type="number"
+                        value={tempThresholds.humidity.max}
+                        onChange={(e) => setTempThresholds(prev => ({
+                          ...prev,
+                          humidity: { ...prev.humidity, max: Number(e.target.value) }
+                        }))}
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* CO2 */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">CO₂ (ppm)</Label>
+                  <div className="flex space-x-2">
+                    <div className="flex-1">
+                      <Label className="text-xs text-muted-foreground">Mínimo</Label>
+                      <Input
+                        type="number"
+                        value={tempThresholds.co2.min}
+                        onChange={(e) => setTempThresholds(prev => ({
+                          ...prev,
+                          co2: { ...prev.co2, min: Number(e.target.value) }
+                        }))}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <Label className="text-xs text-muted-foreground">Máximo</Label>
+                      <Input
+                        type="number"
+                        value={tempThresholds.co2.max}
+                        onChange={(e) => setTempThresholds(prev => ({
+                          ...prev,
+                          co2: { ...prev.co2, max: Number(e.target.value) }
+                        }))}
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* NH3 */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">NH₃ (ppm)</Label>
+                  <div className="flex space-x-2">
+                    <div className="flex-1">
+                      <Label className="text-xs text-muted-foreground">Mínimo</Label>
+                      <Input
+                        type="number"
+                        value={tempThresholds.nh3.min}
+                        onChange={(e) => setTempThresholds(prev => ({
+                          ...prev,
+                          nh3: { ...prev.nh3, min: Number(e.target.value) }
+                        }))}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <Label className="text-xs text-muted-foreground">Máximo</Label>
+                      <Input
+                        type="number"
+                        value={tempThresholds.nh3.max}
+                        onChange={(e) => setTempThresholds(prev => ({
+                          ...prev,
+                          nh3: { ...prev.nh3, max: Number(e.target.value) }
+                        }))}
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-end space-x-2 mt-6">
+                <Button variant="outline" onClick={() => setIsThresholdsOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleThresholdsUpdate}>
+                  Guardar
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+
+        {/* Thermal Map Range */}
+        <Dialog open={isThermalRangeOpen} onOpenChange={setIsThermalRangeOpen}>
+          <DialogTrigger asChild>
+            <DropdownMenuItem onSelect={(e) => e.preventDefault()} onClick={() => {
+              setTempThermalRange(settings.thermalMapRange);
+              setIsThermalRangeOpen(true);
+            }}>
+              <div className="flex items-center gap-2">
+                <Thermometer className="h-4 w-4" />
+                <span>Mapa Térmico</span>
+              </div>
+            </DropdownMenuItem>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Rango del Mapa Térmico</DialogTitle>
+              <DialogDescription>
+                Configura los valores de temperatura para los colores azul y rojo
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Rango de Temperatura (°C)</Label>
+                <div className="flex space-x-2">
+                  <div className="flex-1">
+                    <Label className="text-xs text-muted-foreground">Mínimo (Azul)</Label>
+                    <Input
+                      type="number"
+                      value={tempThermalRange.minTemp}
+                      onChange={(e) => setTempThermalRange(prev => ({
+                        ...prev,
+                        minTemp: Number(e.target.value)
+                      }))}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <Label className="text-xs text-muted-foreground">Máximo (Rojo)</Label>
+                    <Input
+                      type="number"
+                      value={tempThermalRange.maxTemp}
+                      onChange={(e) => setTempThermalRange(prev => ({
+                        ...prev,
+                        maxTemp: Number(e.target.value)
+                      }))}
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  El azul representa temperaturas ≤ mínimo, el rojo representa temperaturas ≥ máximo
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end space-x-2 mt-6">
+              <Button variant="outline" onClick={() => setIsThermalRangeOpen(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleThermalRangeUpdate}>
+                Guardar
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <DropdownMenuSeparator />
 

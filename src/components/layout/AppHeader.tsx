@@ -2,8 +2,9 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Bell, User } from "lucide-react";
+import { User } from "lucide-react";
 import SettingsMenu from "@/components/SettingsMenu";
+import NotificationPanel from "@/components/NotificationPanel";
 
 const AppHeader = () => {
   return (
@@ -14,9 +15,7 @@ const AppHeader = () => {
       </div>
       
       <div className="flex items-center space-x-2">
-        <Button variant="ghost" size="icon">
-          <Bell className="h-5 w-5" />
-        </Button>
+        <NotificationPanel />
         <SettingsMenu />
         <Button variant="ghost" size="icon">
           <User className="h-5 w-5" />
