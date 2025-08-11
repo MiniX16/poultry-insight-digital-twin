@@ -1,6 +1,67 @@
 export type Database = {
   public: {
     Tables: {
+      usuario: {
+        Row: {
+          usuario_id: number
+          email: string
+          nombre: string
+          telefono?: string
+          direccion?: string
+          contraseña: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          usuario_id?: number
+          email: string
+          nombre: string
+          telefono?: string
+          direccion?: string
+          contraseña: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          usuario_id?: number
+          email?: string
+          nombre?: string
+          telefono?: string
+          direccion?: string
+          contraseña?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      granja: {
+        Row: {
+          granja_id: number
+          nombre: string
+          ubicacion?: string
+          descripcion?: string
+          usuario_id: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          granja_id?: number
+          nombre: string
+          ubicacion?: string
+          descripcion?: string
+          usuario_id: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          granja_id?: number
+          nombre?: string
+          ubicacion?: string
+          descripcion?: string
+          usuario_id?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
       nave: {
         Row: {
           nave_id: number
@@ -9,6 +70,7 @@ export type Database = {
           ubicacion: string
           estado: string
           area: number
+          granja_id: number
           created_at: string
           updated_at: string
         }
@@ -19,6 +81,7 @@ export type Database = {
           ubicacion: string
           estado: string
           area: number
+          granja_id: number
           created_at?: string
           updated_at?: string
         }
@@ -29,6 +92,7 @@ export type Database = {
           ubicacion?: string
           estado?: string
           area?: number
+          granja_id?: number
           created_at?: string
           updated_at?: string
         }
@@ -41,6 +105,7 @@ export type Database = {
           cantidad_inicial: number
           raza: string
           nave_id: number | null
+          granja_id: number
           proveedor_id: number | null
           estado: string
           fecha_salida: string | null
@@ -54,6 +119,7 @@ export type Database = {
           cantidad_inicial: number
           raza: string
           nave_id?: number | null
+          granja_id: number
           proveedor_id?: number | null
           estado: string
           fecha_salida?: string | null
@@ -67,6 +133,7 @@ export type Database = {
           cantidad_inicial?: number
           raza?: string
           nave_id?: number | null
+          granja_id?: number
           proveedor_id?: number | null
           estado?: string
           fecha_salida?: string | null

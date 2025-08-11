@@ -7,6 +7,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { PowerIcon, Droplets } from 'lucide-react';
 import LoteSelector from '@/components/LoteSelector';
 import PageLoader from '@/components/ui/page-loader';
+import { useSettings } from '@/context/SettingsContext';
 import { consumoService } from '@/lib/services/consumoService';
 import { medicionAmbientalService } from '@/lib/services/medicionAmbientalService';
 import { alimentacionService } from '@/lib/services/alimentacionService';
@@ -51,6 +52,7 @@ const ConsumptionPage = () => {
     hourlyRate: 0
   });
   const { currentLote } = useLote();
+  const { settings } = useSettings();
 
   // Fetch consumption data
 
@@ -204,9 +206,9 @@ const ConsumptionPage = () => {
     };
     
     fetchConsumptionData();
-    const intervalId = setInterval(fetchConsumptionData, 60 * 1000);
+    const intervalId = setInterval(fetchConsumptionData, settings.refreshInterval * 1000);
     return () => clearInterval(intervalId);
-  }, [currentLote]);
+  }, [currentLote, settings.refreshInterval]);
   
   
   return (

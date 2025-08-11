@@ -7,6 +7,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { ArrowDown } from 'lucide-react';
 import LoteSelector from '@/components/LoteSelector';
 import PageLoader from '@/components/ui/page-loader';
+import { useSettings } from '@/context/SettingsContext';
 import { mortalidadService } from '@/lib/services/mortalidadService';
 import type { Database } from '@/lib/database.types';
 
@@ -37,6 +38,7 @@ const MortalityPage = () => {
     viability: 0
   });
   const { currentLote } = useLote();
+  const { settings } = useSettings();
 
   // Fetch mortality data
 
@@ -133,9 +135,9 @@ const MortalityPage = () => {
     };
     
     fetchMortalityData();
-    const intervalId = setInterval(fetchMortalityData, 60 * 1000);
+    const intervalId = setInterval(fetchMortalityData, settings.refreshInterval * 1000);
     return () => clearInterval(intervalId);
-  }, [currentLote]);
+  }, [currentLote, settings.refreshInterval]);
   
   
   return (

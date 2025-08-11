@@ -7,6 +7,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { Timer } from 'lucide-react';
 import LoteSelector from '@/components/LoteSelector';
 import PageLoader from '@/components/ui/page-loader';
+import { useSettings } from '@/context/SettingsContext';
 import { crecimientoService } from '@/lib/services/crecimientoService';
 import { polloService } from '@/lib/services/polloService';
 import type { Database } from '@/lib/database.types';
@@ -39,6 +40,7 @@ const GrowthPage = () => {
     weeklyGrowthRate: 0
   });
   const { currentLote } = useLote();
+  const { settings } = useSettings();
 
   // Fetch growth data
 
@@ -169,9 +171,9 @@ const GrowthPage = () => {
     };
 
     fetchData();
-    const intervalId = setInterval(fetchData, 60 * 1000);
+    const intervalId = setInterval(fetchData, settings.refreshInterval * 1000);
     return () => clearInterval(intervalId);
-  }, [currentLote]);
+  }, [currentLote, settings.refreshInterval]);
   
   return (
     <>

@@ -8,6 +8,7 @@ import EnvironmentalFactors from '@/components/dashboard/EnvironmentalFactors';
 import { ThermometerSun, Droplets, ArrowDown, Timer, PowerIcon, Gauge } from 'lucide-react';
 import LoteSelector from '@/components/LoteSelector';
 import PageLoader from '@/components/ui/page-loader';
+import { useSettings } from '@/context/SettingsContext';
 import { medicionAmbientalService } from '@/lib/services/medicionAmbientalService';
 import { consumoService } from '@/lib/services/consumoService';
 import { mortalidadService } from '@/lib/services/mortalidadService';
@@ -33,6 +34,7 @@ const Dashboard = () => {
     efficiency: { value: '0.0', trend: 0 }
   });
   const { currentLote } = useLote();
+  const { settings } = useSettings();
 
   // Fetch dashboard stats
   useEffect(() => {
@@ -136,9 +138,9 @@ const Dashboard = () => {
       }
     };
     fetchStats();
-    const intervalId = setInterval(fetchStats, 60 * 1000);
+    const intervalId = setInterval(fetchStats, settings.refreshInterval * 1000);
     return () => clearInterval(intervalId);
-  }, [currentLote]);
+  }, [currentLote, settings.refreshInterval]);
 
   // Render
   return (

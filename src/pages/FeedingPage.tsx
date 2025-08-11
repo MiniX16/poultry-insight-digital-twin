@@ -7,6 +7,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { Layers3 } from 'lucide-react';
 import LoteSelector from '@/components/LoteSelector';
 import PageLoader from '@/components/ui/page-loader';
+import { useSettings } from '@/context/SettingsContext';
 import { consumoService } from '@/lib/services/consumoService';
 import { alimentacionService } from '@/lib/services/alimentacionService';
 import { crecimientoService } from '@/lib/services/crecimientoService';
@@ -46,6 +47,7 @@ const FeedingPage = () => {
     waterRatio: 0
   });
   const { currentLote } = useLote();
+  const { settings } = useSettings();
 
   // Fetch feeding data
 
@@ -185,9 +187,9 @@ const FeedingPage = () => {
     };
     
     fetchFeedingData();
-    const intervalId = setInterval(fetchFeedingData, 60 * 1000);
+    const intervalId = setInterval(fetchFeedingData, settings.refreshInterval * 1000);
     return () => clearInterval(intervalId);
-  }, [currentLote]);
+  }, [currentLote, settings.refreshInterval]);
 
   return (
     <>

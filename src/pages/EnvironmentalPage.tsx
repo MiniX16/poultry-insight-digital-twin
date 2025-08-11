@@ -9,6 +9,7 @@ import { medicionAmbientalService } from '@/lib/services/medicionAmbientalServic
 import { useLote } from '@/context/LoteContext';
 import LoteSelector from '@/components/LoteSelector';
 import PageLoader from '@/components/ui/page-loader';
+import { useSettings } from '@/context/SettingsContext';
 import type { Database } from '@/lib/database.types';
 
 type MedicionAmbiental = Database['public']['Tables']['medicion_ambiental']['Row'];
@@ -25,6 +26,7 @@ const EnvironmentalPage = () => {
   const [co2Data, setCo2Data] = useState<EnvironmentalData[]>([]);
   const [nh3Data, setNh3Data] = useState<EnvironmentalData[]>([]);
   const { currentLote } = useLote();
+  const { settings } = useSettings();
 
   useEffect(() => {
     const fetchEnvData = async () => {
@@ -95,9 +97,9 @@ const EnvironmentalPage = () => {
     };
     
     fetchEnvData();
-    const intervalId = setInterval(fetchEnvData, 60 * 1000);
+    const intervalId = setInterval(fetchEnvData, settings.refreshInterval * 1000);
     return () => clearInterval(intervalId);
-  }, [currentLote]);
+  }, [currentLote, settings.refreshInterval]);
   
   return (
     <>
