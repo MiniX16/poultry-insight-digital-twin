@@ -32,7 +32,7 @@ export const LoteList = () => {
 
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full bg-white">
+      <table className="min-w-full bg-card">
         <thead>
           <tr className="bg-gray-100">
             <th className="px-6 py-3 text-left">Código</th>
@@ -46,7 +46,7 @@ export const LoteList = () => {
         </thead>
         <tbody>
           {lotes.map((lote) => (
-            <tr key={lote.lote_id} className="border-b hover:bg-gray-50">
+            <tr key={lote.lote_id} className="border-b hover:bg-muted/50">
               <td className="px-6 py-4">{lote.codigo}</td>
               <td className="px-6 py-4">{new Date(lote.fecha_ingreso).toLocaleDateString()}</td>
               <td className="px-6 py-4">{lote.cantidad_inicial}</td>

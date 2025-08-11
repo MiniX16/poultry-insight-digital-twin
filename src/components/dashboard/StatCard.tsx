@@ -36,7 +36,7 @@ const StatCard = ({ title, value, icon, trend, className, color = "text-farm-blu
             )}
           </div>
           
-          <div className={`${color} p-2 rounded-md bg-slate-100`}>
+          <div className={`${color} p-2 rounded-md bg-muted`}>
             {icon}
           </div>
         </div>

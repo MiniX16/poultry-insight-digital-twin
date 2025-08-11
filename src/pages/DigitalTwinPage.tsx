@@ -143,7 +143,7 @@ const DigitalTwinPage = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Gemelo Digital Avícola</h1>
-        <div className="flex items-center bg-white rounded-full px-3 py-1 shadow-sm">
+        <div className="flex items-center bg-card rounded-full px-3 py-1 shadow-sm">
           <Droplets className="h-5 w-5 text-farm-teal mr-2" />
           <span className="font-medium">Lote: A-2023-14</span>
         </div>
@@ -203,7 +203,7 @@ const DigitalTwinPage = () => {
                 ))}
               </div>
               
-              <div className="mt-4 bg-slate-50 p-3 rounded-md">
+              <div className="mt-4 bg-muted p-3 rounded-md">
                 <h4 className="font-medium text-sm">{scenarioData.name}</h4>
                 <p className="text-sm text-muted-foreground mt-1">{scenarioData.description}</p>
                 
@@ -479,7 +479,7 @@ const DigitalTwinPage = () => {
                 </TableBody>
               </Table>
               
-              <div className="mt-4 bg-slate-50 p-4 rounded-md">
+              <div className="mt-4 bg-muted p-4 rounded-md">
                 <h4 className="font-medium">Proyección Final (Día 42)</h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
                   <div className="space-y-1">
@@ -521,7 +521,7 @@ const DigitalTwinPage = () => {
             </div>
             
             <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-slate-50 p-3 rounded-md">
+              <div className="bg-muted p-3 rounded-md">
                 <h4 className="font-medium text-sm">Temperatura</h4>
                 <div className="flex items-center mt-2">
                   <ThermometerSun className="h-5 w-5 text-farm-blue mr-2" />
@@ -529,7 +529,7 @@ const DigitalTwinPage = () => {
                 </div>
               </div>
               
-              <div className="bg-slate-50 p-3 rounded-md">
+              <div className="bg-muted p-3 rounded-md">
                 <h4 className="font-medium text-sm">Humedad</h4>
                 <div className="flex items-center mt-2">
                   <Droplets className="h-5 w-5 text-farm-teal mr-2" />
@@ -537,7 +537,7 @@ const DigitalTwinPage = () => {
                 </div>
               </div>
               
-              <div className="bg-slate-50 p-3 rounded-md">
+              <div className="bg-muted p-3 rounded-md">
                 <h4 className="font-medium text-sm">Ventilación</h4>
                 <div className="flex items-center mt-2">
                   <Gauge className="h-5 w-5 text-farm-orange mr-2" />
