@@ -200,7 +200,7 @@ export const medicionAmbientalService = {
         acc[curr.lote_id] = curr;
       }
       return acc;
-    }, {} as Record<number, any>);
+    }, {} as Record<number, MedicionAmbiental>);
 
     return Object.values(ultimasMediciones) as (MedicionAmbiental & {
       lote: {

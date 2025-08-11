@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLote } from '@/context/LoteContext';
 import { Timer } from 'lucide-react';
+import type { Database } from '@/lib/database.types';
 import { loteService } from '@/lib/services/loteService';
 import {
   Select,
@@ -10,9 +11,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+type LoteWithGranja = Database['public']['Tables']['lote']['Row'] & { 
+  granja: { granja_id: number; nombre: string } | null 
+};
+
 const LoteSelector = ({ className = ''}: { className?: string }) => {
   const { currentLote, setCurrentLote } = useLote();
-  const [lotes, setLotes] = useState<any[]>([]);
+  const [lotes, setLotes] = useState<LoteWithGranja[]>([]);
 
   useEffect(() => {
     const fetchLotes = async () => {

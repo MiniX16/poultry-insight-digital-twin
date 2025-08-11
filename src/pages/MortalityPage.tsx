@@ -7,6 +7,9 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { ArrowDown } from 'lucide-react';
 import LoteSelector from '@/components/LoteSelector';
 import { mortalidadService } from '@/lib/services/mortalidadService';
+import type { Database } from '@/lib/database.types';
+
+type Mortalidad = Database['public']['Tables']['mortalidad']['Row'];
 
 interface MortalityData {
   date: string;
@@ -72,7 +75,7 @@ const MortalityPage = () => {
           todayStr
         );
         // --- PROCESS DAILY DATA ---
-        const dailyData = mortalityRecords.reduce((acc: any, record: any) => {
+        const dailyData = mortalityRecords.reduce((acc: Record<string, MortalityData>, record: Mortalidad) => {
           const date = new Date(record.fecha);
           const dateStr = date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
           if (!acc[dateStr]) {

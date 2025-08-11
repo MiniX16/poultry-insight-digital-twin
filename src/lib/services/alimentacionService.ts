@@ -173,7 +173,7 @@ export const alimentacionService = {
         acc[key] = curr;
       }
       return acc;
-    }, {} as Record<string, any>);
+    }, {} as Record<string, Alimentacion>);
 
     return Object.values(ultimasAlimentaciones) as (Alimentacion & {
       lote: {

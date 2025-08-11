@@ -8,6 +8,10 @@ import { Timer } from 'lucide-react';
 import LoteSelector from '@/components/LoteSelector';
 import { crecimientoService } from '@/lib/services/crecimientoService';
 import { polloService } from '@/lib/services/polloService';
+import type { Database } from '@/lib/database.types';
+
+type Crecimiento = Database['public']['Tables']['crecimiento']['Row'];
+type Pollo = Database['public']['Tables']['pollo']['Row'];
 
 interface GrowthData {
   day: number;
@@ -45,7 +49,7 @@ const GrowthPage = () => {
         const growthRecords = await crecimientoService.getCrecimientosByLote(currentLote.lote_id);
           
         // --- PROCESS GROWTH DATA ---
-        const processedGrowthData = growthRecords.map((record: any) => {
+        const processedGrowthData = growthRecords.map((record: Crecimiento) => {
           const recordDate = new Date(record.fecha);
           const startDate = new Date(currentLote.fecha_ingreso);
           const dayDiff = Math.floor((recordDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
@@ -55,7 +59,7 @@ const GrowthPage = () => {
           const midpoint = 20;
           const idealWeight = maxWeight / (1 + Math.exp(-growthRate * (dayDiff - midpoint)));
           // Calculate daily gain
-          const prevRecord = growthRecords.find((r: any) => {
+          const prevRecord = growthRecords.find((r: Crecimiento) => {
             const rDate = new Date(r.fecha);
             const rDayDiff = Math.floor((rDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
             return rDayDiff === dayDiff - 1;
@@ -81,7 +85,7 @@ const GrowthPage = () => {
 
         // --- FETCH INDIVIDUAL CHICKENS DATA ---
         const pollos = await polloService.getPollosByLote(currentLote.lote_id);
-        const pesos = pollos.map((p: any) => p.peso);
+        const pesos = pollos.map((p: Pollo) => p.peso);
 
         // --- PROCESS WEIGHT DISTRIBUTION ---
         if (pesos.length > 0) {

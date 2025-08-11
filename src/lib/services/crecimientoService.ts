@@ -175,7 +175,7 @@ export const crecimientoService = {
         acc[curr.lote_id] = curr;
       }
       return acc;
-    }, {} as Record<number, any>);
+    }, {} as Record<number, Crecimiento>);
 
     return Object.values(ultimosCrecimientos) as (Crecimiento & {
       lote: {

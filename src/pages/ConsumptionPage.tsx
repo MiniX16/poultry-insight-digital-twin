@@ -9,6 +9,10 @@ import LoteSelector from '@/components/LoteSelector';
 import { consumoService } from '@/lib/services/consumoService';
 import { medicionAmbientalService } from '@/lib/services/medicionAmbientalService';
 import { alimentacionService } from '@/lib/services/alimentacionService';
+import type { Database } from '@/lib/database.types';
+
+type Consumo = Database['public']['Tables']['consumo']['Row'];
+type Alimentacion = Database['public']['Tables']['alimentacion']['Row'];
 
 interface ConsumptionData {
   date: string;
@@ -71,7 +75,7 @@ const ConsumptionPage = () => {
         // --- FETCH CONSUMPTION DATA ---
         const consumptionRecords = await consumoService.getConsumosByLote(currentLote.lote_id);
         // --- PROCESS DAILY CONSUMPTION DATA ---
-        const dailyConsumption = consumptionRecords.reduce((acc: any, record: any) => {
+        const dailyConsumption = consumptionRecords.reduce((acc: Record<string, ConsumptionData>, record: Consumo) => {
           const date = new Date(record.fecha_hora);
           const dayName = date.toLocaleDateString('es-ES', { weekday: 'short' });
           const formattedDate = date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
@@ -135,7 +139,7 @@ const ConsumptionPage = () => {
         setHourlyData(hourlyUsage);
         // --- CALCULATE ELECTRICITY BREAKDOWN ---
         // This could be based on equipment data, for now use reasonable estimates
-        const totalElectricity = processedDailyData.reduce((sum: any, day: any) => sum + day.electricity, 0);
+        const totalElectricity = processedDailyData.reduce((sum: number, day: ConsumptionData) => sum + day.electricity, 0);
         if (totalElectricity > 0) {
           setElectricBreakdown([
             { name: 'Ventilación', value: 42, color: '#3B82F6' },
@@ -154,19 +158,19 @@ const ConsumptionPage = () => {
         );
         
         // --- CALCULATE STATS ---
-        const todayData = processedDailyData.find((day: any) => day.date.includes(today.getDate().toString().padStart(2, '0'))) || { electricity: 0, water: 0 };
+        const todayData = processedDailyData.find((day: ConsumptionData) => day.date.includes(today.getDate().toString().padStart(2, '0'))) || { electricity: 0, water: 0 };
         const avgElectricity = processedDailyData.length > 0 
-          ? processedDailyData.reduce((sum: any, day: any) => sum + day.electricity, 0) / processedDailyData.length 
+          ? processedDailyData.reduce((sum: number, day: ConsumptionData) => sum + day.electricity, 0) / processedDailyData.length 
           : 0;
         const avgWater = processedDailyData.length > 0 
-          ? processedDailyData.reduce((sum: any, day: any) => sum + day.water, 0) / processedDailyData.length 
+          ? processedDailyData.reduce((sum: number, day: ConsumptionData) => sum + day.water, 0) / processedDailyData.length 
           : 0;
         
         const birdCount = currentLote.cantidad_inicial || 1;
         const electricityPerBird = (todayData.electricity / birdCount) * 1000; // Wh per bird
         const waterPerBird = todayData.water / birdCount;
         
-        const totalFeedToday = feedingRecords.reduce((sum: any, record: any) => sum + (record.cantidad_suministrada || 0), 0);
+        const totalFeedToday = feedingRecords.reduce((sum: number, record: Alimentacion) => sum + (record.cantidad_suministrada || 0), 0);
         const waterFoodRatio = totalFeedToday > 0 ? todayData.water / totalFeedToday : 0;
         
         const electricityRate = 0.15; // €/kWh

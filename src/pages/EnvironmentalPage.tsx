@@ -8,6 +8,9 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import { medicionAmbientalService } from '@/lib/services/medicionAmbientalService';
 import { useLote } from '@/context/LoteContext';
 import LoteSelector from '@/components/LoteSelector';
+import type { Database } from '@/lib/database.types';
+
+type MedicionAmbiental = Database['public']['Tables']['medicion_ambiental']['Row'];
 
 interface EnvironmentalData {
   time: string;
@@ -44,7 +47,7 @@ const EnvironmentalPage = () => {
         );
         
         // Process the data for each environmental factor
-        const processedData = measurements.reduce((acc: any, record: any) => {
+        const processedData = measurements.reduce((acc: Record<string, EnvironmentalData[]>, record: MedicionAmbiental) => {
           const time = new Date(record.fecha_hora).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
           if (!acc.temperature) acc.temperature = [];
           if (!acc.humidity) acc.humidity = [];

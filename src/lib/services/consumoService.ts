@@ -156,7 +156,7 @@ export const consumoService = {
       acc[fecha].desperdicio += (curr.desperdicio || 0);
       acc[fecha].count++;
       return acc;
-    }, {} as Record<string, any>);
+    }, {} as Record<string, { cantidad_agua: number; cantidad_alimento: number; desperdicio: number; count: number; }>);
 
     const diasUnicos = Object.keys(consumosPorDia).length;
 
@@ -164,8 +164,8 @@ export const consumoService = {
       totalAgua: consumos.reduce((sum, c) => sum + c.cantidad_agua, 0),
       totalAlimento: consumos.reduce((sum, c) => sum + c.cantidad_alimento, 0),
       totalDesperdicio: consumos.reduce((sum, c) => sum + (c.desperdicio || 0), 0),
-      promedioAguaDiario: diasUnicos ? Object.values(consumosPorDia).reduce((sum: number, dia: any) => sum + dia.cantidad_agua, 0) / diasUnicos : 0,
-      promedioAlimentoDiario: diasUnicos ? Object.values(consumosPorDia).reduce((sum: number, dia: any) => sum + dia.cantidad_alimento, 0) / diasUnicos : 0,
+      promedioAguaDiario: diasUnicos ? Object.values(consumosPorDia).reduce((sum: number, dia) => sum + dia.cantidad_agua, 0) / diasUnicos : 0,
+      promedioAlimentoDiario: diasUnicos ? Object.values(consumosPorDia).reduce((sum: number, dia) => sum + dia.cantidad_alimento, 0) / diasUnicos : 0,
       registros: consumos
     };
   },
@@ -193,7 +193,7 @@ export const consumoService = {
         acc[curr.lote_id] = curr;
       }
       return acc;
-    }, {} as Record<number, any>);
+    }, {} as Record<number, Consumo>);
 
     return Object.values(ultimosConsumos) as (Consumo & {
       lote: {

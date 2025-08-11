@@ -26,6 +26,9 @@ import {
 
 import { consumoService } from '@/lib/services/consumoService';
 import { useLote } from '@/context/LoteContext';
+import type { Database } from '@/lib/database.types';
+
+type Consumo = Database['public']['Tables']['consumo']['Row'];
 
 interface ConsumptionData {
   label: string;
@@ -40,7 +43,7 @@ const ConsumptionChart = () => {
   const { currentLote } = useLote();
 
   // Helper function to create hourly data for 24h view
-  const createHourlyData = (records: any[]): ConsumptionData[] => {
+  const createHourlyData = (records: Consumo[]): ConsumptionData[] => {
     const hourlyData: ConsumptionData[] = Array.from({ length: 24 }, (_, i) => ({
       label: `${i.toString().padStart(2, '0')}:00`,
       tooltipLabel: `${i.toString().padStart(2, '0')}:00`,
@@ -80,7 +83,7 @@ const ConsumptionChart = () => {
   };
 
   // Helper function to create daily data for 7d and 30d views
-  const createDailyData = (records: any[]): ConsumptionData[] => {
+  const createDailyData = (records: Consumo[]): ConsumptionData[] => {
     const dailyData: Record<string, { power: number[], water: number[] }> = {};
 
     records.forEach(record => {
@@ -110,7 +113,7 @@ const ConsumptionChart = () => {
   };
 
   // Helper function to get records based on time range
-  const getRecordsForTimeRange = (allRecords: any[], timeRange: string): any[] => {
+  const getRecordsForTimeRange = (allRecords: Consumo[], timeRange: string): Consumo[] => {
     switch (timeRange) {
       case '24h':
         return allRecords.slice(0, 24);
@@ -196,7 +199,7 @@ const ConsumptionChart = () => {
                 tickFormatter={(v) => v?.toFixed(2) ?? 'N/A'}
               />
               <Tooltip
-                formatter={(value: any) => value !== null ? Number(value).toFixed(2) : 'N/A'}
+                formatter={(value: number | null) => value !== null ? Number(value).toFixed(2) : 'N/A'}
                 labelFormatter={(label, payload) =>
                   payload.length > 0 && payload[0].payload.tooltipLabel
                     ? payload[0].payload.tooltipLabel
