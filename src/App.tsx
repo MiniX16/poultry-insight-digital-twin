@@ -13,6 +13,7 @@ import { FarmProvider, useFarm } from "@/context/FarmContext";
 import { useTheme } from "@/hooks/useTheme";
 
 import AppLayout from "./components/layout/AppLayout";
+import RootRedirect from "./components/RootRedirect";
 import Home from "./pages/Home";
 import FarmSelection from "./pages/FarmSelection";
 import Dashboard from "./pages/Dashboard";
@@ -60,7 +61,7 @@ const AppContent = () => {
       <NotificationProvider>
         <LoteProvider>
           <Routes>
-            <Route path="/" element={<Home />} />
+            <Route path="/" element={<RootRedirect />} />
             <Route path="/farm-selection" element={<FarmSelection />} />
             <Route element={<AppLayout />}>
               <Route path="/dashboard" element={

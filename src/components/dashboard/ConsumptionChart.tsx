@@ -83,17 +83,27 @@ const ConsumptionChart = () => {
   };
 
   // Helper function to create daily data for 7d and 30d views
-  const createDailyData = (records: Consumo[]): ConsumptionData[] => {
+  const createDailyData = (records: Consumo[], timeRange: string): ConsumptionData[] => {
+    const now = new Date();
+    const numDays = timeRange === '7d' ? 7 : 30;
     const dailyData: Record<string, { power: number[], water: number[] }> = {};
 
+    // Initialize all days in range with empty arrays
+    for (let i = numDays - 1; i >= 0; i--) {
+      const date = new Date(now);
+      date.setDate(now.getDate() - i);
+      const key = date.toISOString().split('T')[0]; // YYYY-MM-DD
+      dailyData[key] = { power: [], water: [] };
+    }
+
+    // Populate with actual data
     records.forEach(record => {
       const date = new Date(record.fecha_hora);
       const key = date.toISOString().split('T')[0]; // YYYY-MM-DD
-      if (!dailyData[key]) {
-        dailyData[key] = { power: [], water: [] };
+      if (dailyData[key]) {
+        if (record.kwh !== null) dailyData[key].power.push(record.kwh);
+        if (record.cantidad_agua !== null) dailyData[key].water.push(record.cantidad_agua);
       }
-      if (record.kwh !== null) dailyData[key].power.push(record.kwh);
-      if (record.cantidad_agua !== null) dailyData[key].water.push(record.cantidad_agua);
     });
 
     return Object.entries(dailyData)
@@ -108,22 +118,38 @@ const ConsumptionChart = () => {
           power: values.power.length > 0 ? values.power.reduce((a, b) => a + b, 0) / values.power.length : null,
           water: values.water.length > 0 ? values.water.reduce((a, b) => a + b, 0) / values.water.length : null
         };
-      })
-      .filter(item => item.power !== null || item.water !== null);
+      });
   };
 
   // Helper function to get records based on time range
   const getRecordsForTimeRange = (allRecords: Consumo[], timeRange: string): Consumo[] => {
+    const now = new Date();
+    let startDate: Date;
+
     switch (timeRange) {
       case '24h':
-        return allRecords.slice(0, 24);
+        startDate = new Date(now);
+        startDate.setHours(0, 0, 0, 0); // Start of today
+        break;
       case '7d':
-        return allRecords.slice(0, 7 * 24);
+        startDate = new Date(now);
+        startDate.setDate(now.getDate() - 6); // Last 7 days (including today)
+        startDate.setHours(0, 0, 0, 0);
+        break;
       case '30d':
-        return allRecords.slice(0, 30 * 24);
+        startDate = new Date(now);
+        startDate.setDate(now.getDate() - 29); // Last 30 days (including today)
+        startDate.setHours(0, 0, 0, 0);
+        break;
       default:
-        return allRecords.slice(0, 24);
+        startDate = new Date(now);
+        startDate.setHours(0, 0, 0, 0);
     }
+
+    return allRecords.filter(record => {
+      const recordDate = new Date(record.fecha_hora);
+      return recordDate >= startDate && recordDate <= now;
+    });
   };
 
   useEffect(() => {
@@ -142,7 +168,7 @@ const ConsumptionChart = () => {
         if (timeRange === '24h') {
           chartData = createHourlyData(records);
         } else {
-          chartData = createDailyData(records);
+          chartData = createDailyData(records, timeRange);
         }
         
         setData(chartData);
