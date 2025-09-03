@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
   DialogContent,
@@ -28,7 +27,6 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ open, onOpenChange, onSwitchT
   const [isLoading, setIsLoading] = useState(false);
 
   const { login } = useAuth();
-  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,8 +40,6 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ open, onOpenChange, onSwitchT
         onOpenChange(false);
         setEmail('');
         setPassword('');
-        // Navigate to farm selection after successful login
-        navigate('/farm-selection');
       } else {
         setError(result.error || 'Error de autenticación');
       }
@@ -54,16 +50,26 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ open, onOpenChange, onSwitchT
     }
   };
 
-  const handleClose = () => {
-    onOpenChange(false);
-    setEmail('');
-    setPassword('');
-    setError(null);
+  const handleClose = (open: boolean) => {
+    if (!open && !error) {
+      onOpenChange(false);
+      setEmail('');
+      setPassword('');
+      setError(null);
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => {
+        if (error) {
+          e.preventDefault();
+        }
+      }} onEscapeKeyDown={(e) => {
+        if (error) {
+          e.preventDefault();
+        }
+      }}>
         <DialogHeader>
           <DialogTitle>Iniciar Sesión</DialogTitle>
           <DialogDescription>

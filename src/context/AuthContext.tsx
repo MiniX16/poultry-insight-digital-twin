@@ -70,15 +70,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(result.user);
         localStorage.setItem('auth-user', JSON.stringify(result.user));
         localStorage.setItem('auth-token', result.token || 'authenticated');
+        setIsLoading(false);
         return { success: true };
       } else {
+        setIsLoading(false);
         return { success: false, error: result.error || 'Error de autenticación' };
       }
     } catch (error) {
       console.error('Login error:', error);
-      return { success: false, error: 'Error de conexión' };
-    } finally {
       setIsLoading(false);
+      return { success: false, error: 'Error de conexión' };
     }
   };
 

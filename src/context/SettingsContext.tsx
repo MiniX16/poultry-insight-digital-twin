@@ -14,6 +14,7 @@ interface SettingsState {
     minTemp: number; // °C for blue color
     maxTemp: number; // °C for red color
   };
+  electricityRate: number; // €/kWh
 }
 
 interface SettingsContextType {
@@ -36,6 +37,7 @@ const defaultSettings: SettingsState = {
     minTemp: 15, // °C for blue color
     maxTemp: 40, // °C for red color
   },
+  electricityRate: 0.15, // €/kWh default
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);

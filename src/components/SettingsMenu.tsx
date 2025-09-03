@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, RefreshCw, Clock, Palette, Bell, RotateCcw, AlertTriangle, Thermometer } from 'lucide-react';
+import { Settings, RefreshCw, Clock, Palette, Bell, RotateCcw, AlertTriangle, Thermometer, Zap } from 'lucide-react';
 import { useSettings } from '@/context/SettingsContext';
 import {
   DropdownMenu,
@@ -22,8 +22,10 @@ const SettingsMenu: React.FC = () => {
   const { settings, updateSetting, resetSettings } = useSettings();
   const [isThresholdsOpen, setIsThresholdsOpen] = useState(false);
   const [isThermalRangeOpen, setIsThermalRangeOpen] = useState(false);
+  const [isElectricityRateOpen, setIsElectricityRateOpen] = useState(false);
   const [tempThresholds, setTempThresholds] = useState(settings.notificationThresholds);
   const [tempThermalRange, setTempThermalRange] = useState(settings.thermalMapRange);
+  const [tempElectricityRate, setTempElectricityRate] = useState(settings.electricityRate);
 
   // Helper function to format refresh interval display
   const formatRefreshInterval = (seconds: number): string => {
@@ -57,6 +59,11 @@ const SettingsMenu: React.FC = () => {
   const handleThermalRangeUpdate = () => {
     updateSetting('thermalMapRange', tempThermalRange);
     setIsThermalRangeOpen(false);
+  };
+
+  const handleElectricityRateUpdate = () => {
+    updateSetting('electricityRate', tempElectricityRate);
+    setIsElectricityRateOpen(false);
   };
 
   return (
@@ -302,6 +309,55 @@ const SettingsMenu: React.FC = () => {
             </DialogContent>
           </Dialog>
         )}
+
+        {/* Electricity Rate */}
+        <Dialog open={isElectricityRateOpen} onOpenChange={setIsElectricityRateOpen}>
+          <DialogTrigger asChild>
+            <DropdownMenuItem onSelect={(e) => e.preventDefault()} onClick={() => {
+              setTempElectricityRate(settings.electricityRate);
+              setIsElectricityRateOpen(true);
+            }}>
+              <div className="flex items-center gap-2">
+                <Zap className="h-4 w-4" />
+                <span>Tarifa Eléctrica</span>
+                <span className="ml-auto text-xs text-muted-foreground">
+                  €{settings.electricityRate}/kWh
+                </span>
+              </div>
+            </DropdownMenuItem>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Tarifa Eléctrica</DialogTitle>
+              <DialogDescription>
+                Configura el precio por kWh para calcular costos
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Precio por kWh (€)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={tempElectricityRate}
+                  onChange={(e) => setTempElectricityRate(Number(e.target.value))}
+                  placeholder="0.15"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Este valor se usa para calcular el costo estimado de electricidad
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end space-x-2 mt-6">
+              <Button variant="outline" onClick={() => setIsElectricityRateOpen(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleElectricityRateUpdate}>
+                Guardar
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Thermal Map Range */}
         <Dialog open={isThermalRangeOpen} onOpenChange={setIsThermalRangeOpen}>

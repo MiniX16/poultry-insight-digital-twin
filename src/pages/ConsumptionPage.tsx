@@ -167,7 +167,10 @@ const ConsumptionPage = () => {
         );
         
         // --- CALCULATE STATS ---
-        const todayData = processedDailyData.find((day: ConsumptionData) => day.date.includes(today.getDate().toString().padStart(2, '0'))) || { electricity: 0, water: 0 };
+        const todayDateString = today.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
+        const todayWeekday = today.toLocaleDateString('es-ES', { weekday: 'short' });
+        const todayKey = `${todayWeekday} ${todayDateString}`;
+        const todayData = processedDailyData.find((day: ConsumptionData) => day.date === todayKey) || { electricity: 0, water: 0 };
         const avgElectricity = processedDailyData.length > 0 
           ? processedDailyData.reduce((sum: number, day: ConsumptionData) => sum + day.electricity, 0) / processedDailyData.length 
           : 0;
@@ -182,8 +185,7 @@ const ConsumptionPage = () => {
         const totalFeedToday = feedingRecords.reduce((sum: number, record: Alimentacion) => sum + (record.cantidad_suministrada || 0), 0);
         const waterFoodRatio = totalFeedToday > 0 ? todayData.water / totalFeedToday : 0;
         
-        const electricityRate = 0.15; // €/kWh
-        const totalCost = avgElectricity * electricityRate;
+        const totalCost = avgElectricity * settings.electricityRate;
         const hourlyRate = avgElectricity / 24;
         
         // --- SET STATS ---
@@ -208,7 +210,7 @@ const ConsumptionPage = () => {
     fetchConsumptionData();
     const intervalId = setInterval(fetchConsumptionData, settings.refreshInterval * 1000);
     return () => clearInterval(intervalId);
-  }, [currentLote, settings.refreshInterval]);
+  }, [currentLote, settings.refreshInterval, settings.electricityRate]);
   
   
   return (
@@ -278,7 +280,7 @@ const ConsumptionPage = () => {
               <CardContent>
                 <div className="flex flex-col items-center">
                   <span className="text-3xl font-bold text-farm-orange">€{stats.totalCost}</span>
-                  <span className="text-sm text-muted-foreground mt-1">€0.15/kWh</span>
+                  <span className="text-sm text-muted-foreground mt-1">€{settings.electricityRate}/kWh</span>
                 </div>
               </CardContent>
             </Card>
@@ -507,7 +509,7 @@ const ConsumptionPage = () => {
                   <TableCell className="font-medium">{day.date}</TableCell>
                   <TableCell>{day.electricity}</TableCell>
                   <TableCell>{day.water}</TableCell>
-                  <TableCell>{(day.electricity * 0.15).toFixed(2)}</TableCell>
+                  <TableCell>{(day.electricity * settings.electricityRate).toFixed(2)}</TableCell>
                   <TableCell>{(day.water / (currentLote?.cantidad_inicial || 1)).toFixed(2)}</TableCell>
                 </TableRow>
               ))}

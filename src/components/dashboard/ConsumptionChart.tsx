@@ -130,7 +130,14 @@ const ConsumptionChart = () => {
       case '24h':
         startDate = new Date(now);
         startDate.setHours(0, 0, 0, 0); // Start of today
-        break;
+        // For 24h view, include the entire day
+        const endDate = new Date(startDate);
+        endDate.setDate(startDate.getDate() + 1);
+        endDate.setMilliseconds(-1); // End of today
+        return allRecords.filter(record => {
+          const recordDate = new Date(record.fecha_hora);
+          return recordDate >= startDate && recordDate <= endDate;
+        });
       case '7d':
         startDate = new Date(now);
         startDate.setDate(now.getDate() - 6); // Last 7 days (including today)
@@ -146,9 +153,13 @@ const ConsumptionChart = () => {
         startDate.setHours(0, 0, 0, 0);
     }
 
+    // For all time ranges, include the full end day
+    const endDate = new Date(now);
+    endDate.setHours(23, 59, 59, 999);
+
     return allRecords.filter(record => {
       const recordDate = new Date(record.fecha_hora);
-      return recordDate >= startDate && recordDate <= now;
+      return recordDate >= startDate && recordDate <= endDate;
     });
   };
 

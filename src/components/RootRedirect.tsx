@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useFarm } from '@/context/FarmContext';
@@ -8,21 +8,25 @@ const RootRedirect: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
   const { selectedFarm, isLoading: farmLoading } = useFarm();
   const navigate = useNavigate();
+  const initialLoad = useRef(true);
 
   useEffect(() => {
-    if (!isLoading && !farmLoading && isAuthenticated) {
-      if (selectedFarm) {
-        // User is authenticated and has selected a farm, redirect to dashboard
-        navigate('/dashboard');
-      } else {
-        // User is authenticated but hasn't selected a farm, redirect to farm selection
-        navigate('/farm-selection');
+    if (!isLoading && !farmLoading) {
+      initialLoad.current = false;
+      if (isAuthenticated) {
+        if (selectedFarm) {
+          // User is authenticated and has selected a farm, redirect to dashboard
+          navigate('/dashboard');
+        } else {
+          // User is authenticated but hasn't selected a farm, redirect to farm selection
+          navigate('/farm-selection');
+        }
       }
     }
   }, [isAuthenticated, selectedFarm, isLoading, farmLoading, navigate]);
 
-  // Show loading while checking authentication status
-  if (isLoading || farmLoading) {
+  // Show loading only on initial page load
+  if (initialLoad.current && (isLoading || farmLoading)) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="flex flex-col items-center space-y-4">
