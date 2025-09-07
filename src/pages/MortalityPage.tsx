@@ -35,8 +35,7 @@ const MortalityPage = () => {
   const [stats, setStats] = useState({
     total: { count: 0, percentage: 0 },
     avgDaily: 0,
-    weekly: { count: 0, percentage: 0 },
-    viability: 0
+    weekly: { count: 0, percentage: 0 }
   });
   const { currentLote } = useLote();
   const { settings } = useSettings();
@@ -113,11 +112,6 @@ const MortalityPage = () => {
           color: colors[index % colors.length]
         })));
         
-        // --- CALCULATE VIABILITY RATE ---
-        const totalMortality = resumen.totalMortalidad;
-        const remainingBirds = currentLote.cantidad_inicial - totalMortality;
-        const currentViability = (remainingBirds / currentLote.cantidad_inicial) * 100;
-        
         // --- SET STATS ---
         setStats({
           total: {
@@ -128,8 +122,7 @@ const MortalityPage = () => {
           weekly: {
             count: weeklyResumen.totalMortalidad,
             percentage: weeklyResumen.porcentajeMortalidad
-          },
-          viability: currentViability
+          }
         });
         
         // Mark that we have data now
@@ -156,7 +149,7 @@ const MortalityPage = () => {
         <LoteSelector />
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Mortandad Total</CardTitle>
@@ -196,18 +189,6 @@ const MortalityPage = () => {
           </CardContent>
         </Card>
         
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Tasa de Viabilidad</CardTitle>
-            <CardDescription>Estimación final</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col items-center">
-              <span className="text-3xl font-bold text-farm-green">{stats.viability.toFixed(1)}%</span>
-              <span className="text-sm text-muted-foreground mt-1">viabilidad actual</span>
-            </div>
-          </CardContent>
-        </Card>
       </div>
       
       <div className="grid grid-cols-1 gap-6">
