@@ -38,7 +38,7 @@ export type Database = {
           granja_id: number
           nombre: string
           ubicacion?: string
-          descripcion?: string
+          capacidad: number
           usuario_id: number
           created_at: string
           updated_at: string
@@ -47,7 +47,7 @@ export type Database = {
           granja_id?: number
           nombre: string
           ubicacion?: string
-          descripcion?: string
+          capacidad: number
           usuario_id: number
           created_at?: string
           updated_at?: string
@@ -56,7 +56,7 @@ export type Database = {
           granja_id?: number
           nombre?: string
           ubicacion?: string
-          descripcion?: string
+          capacidad?: number
           usuario_id?: number
           created_at?: string
           updated_at?: string
@@ -70,7 +70,6 @@ export type Database = {
           ubicacion: string
           estado: string
           area: number
-          granja_id: number
           created_at: string
           updated_at: string
         }
@@ -81,7 +80,6 @@ export type Database = {
           ubicacion: string
           estado: string
           area: number
-          granja_id: number
           created_at?: string
           updated_at?: string
         }
@@ -92,7 +90,6 @@ export type Database = {
           ubicacion?: string
           estado?: string
           area?: number
-          granja_id?: number
           created_at?: string
           updated_at?: string
         }
@@ -321,25 +318,25 @@ export type Database = {
           id: number
           lote_id: number
           fecha: string
-          temperaturas: number
-          created_at: string
-          updated_at: string
+          temperaturas: number[][]
+          min_temp: number | null
+          max_temp: number | null
         }
         Insert: {
           id?: number
           lote_id: number
-          fecha: string
-          temperaturas: number
-          created_at?: string
-          updated_at?: string
+          fecha?: string
+          temperaturas: number[][]
+          min_temp?: number | null
+          max_temp?: number | null
         }
         Update: {
           id?: number
           lote_id?: number
           fecha?: string
-          temperaturas?: number
-          created_at?: string
-          updated_at?: string
+          temperaturas?: number[][]
+          min_temp?: number | null
+          max_temp?: number | null
         }
       }
       crecimiento: {
