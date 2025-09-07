@@ -27,15 +27,26 @@ const LoteContext = createContext<{
 });
 
 export const LoteProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentLote, setCurrentLote] = useState<Lote | null>(null);
+  const [currentLote, setCurrentLoteState] = useState<Lote | null>(null);
   const [availableLotes, setAvailableLotes] = useState<LoteWithGranja[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { selectedFarm } = useFarm();
 
+  // Wrapper function to save to localStorage when lote is manually selected
+  const setCurrentLote = (lote: Lote | null) => {
+    setCurrentLoteState(lote);
+    if (lote) {
+      localStorage.setItem('selectedLoteId', lote.lote_id.toString());
+    } else {
+      localStorage.removeItem('selectedLoteId');
+    }
+  };
+
   const refreshLotes = async () => {
     if (!selectedFarm) {
       setAvailableLotes([]);
-      setCurrentLote(null);
+      setCurrentLoteState(null);
+      localStorage.removeItem('selectedLoteId');
       return;
     }
 
@@ -54,14 +65,36 @@ export const LoteProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       setAvailableLotes(lotesWithGranja);
       
-      // If current lote is not from this farm, clear it
-      if (currentLote && currentLote.granja_id !== selectedFarm.granja_id) {
-        setCurrentLote(null);
+      // Try to restore the previously selected lote
+      const savedLoteId = localStorage.getItem('selectedLoteId');
+      let loteToSelect: Lote | null = null;
+      
+      if (savedLoteId) {
+        // Try to find the saved lote in the current farm's lotes
+        loteToSelect = farmLotes.find(lote => lote.lote_id.toString() === savedLoteId) || null;
+      }
+      
+      // If no saved lote or saved lote not found, select the first available lote
+      if (!loteToSelect && farmLotes.length > 0) {
+        loteToSelect = farmLotes[0];
+      }
+      
+      // If current lote is not from this farm or we found a better candidate, update it
+      if (!currentLote || 
+          !farmLotes.some(lote => lote.lote_id === currentLote.lote_id) ||
+          (loteToSelect && loteToSelect.lote_id !== currentLote.lote_id)) {
+        setCurrentLoteState(loteToSelect);
+        if (loteToSelect) {
+          localStorage.setItem('selectedLoteId', loteToSelect.lote_id.toString());
+        } else {
+          localStorage.removeItem('selectedLoteId');
+        }
       }
     } catch (error) {
       console.error('Error loading lotes for farm:', error);
       setAvailableLotes([]);
-      setCurrentLote(null);
+      setCurrentLoteState(null);
+      localStorage.removeItem('selectedLoteId');
     } finally {
       setIsLoading(false);
     }
