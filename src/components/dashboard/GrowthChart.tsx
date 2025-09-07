@@ -68,7 +68,7 @@ const PesoPromedio7Dias = () => {
             <LineChart data={data} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="fecha" label={{ value: 'Fecha', position: 'insideBottom', offset: -5 }} />
-              <YAxis label={{ value: 'Peso (kg)', angle: -90, position: 'insideLeft' }} />
+              <YAxis label={{ value: 'Peso (g)', angle: -90, position: 'insideLeft' }} />
               <Tooltip />
               <Line
                 type="monotone"

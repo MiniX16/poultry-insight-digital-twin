@@ -188,7 +188,7 @@ const GrowthPage = () => {
           const weeklyIdealGain = last7DaysWithActual.length >= 2
             ? last7DaysWithActual[last7DaysWithActual.length - 1].ideal - last7DaysWithActual[0].ideal
             : 1;
-          const weeklyGrowthRate = weeklyIdealGain > 0 
+          const weeklyGrowthRate = last7DaysWithActual.length >= 2 && weeklyIdealGain > 0 
             ? ((weeklyGain - weeklyIdealGain) / weeklyIdealGain) * 100 
             : 0;
             
