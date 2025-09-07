@@ -11,6 +11,7 @@ import { useSettings } from '@/context/SettingsContext';
 import { consumoService } from '@/lib/services/consumoService';
 import { medicionAmbientalService } from '@/lib/services/medicionAmbientalService';
 import { alimentacionService } from '@/lib/services/alimentacionService';
+import { mortalidadService } from '@/lib/services/mortalidadService';
 import type { Database } from '@/lib/database.types';
 
 type Consumo = Database['public']['Tables']['consumo']['Row'];
@@ -52,6 +53,7 @@ const ConsumptionPage = () => {
     totalCost: 0,
     hourlyRate: 0
   });
+  const [livingBirdCount, setLivingBirdCount] = useState<number>(0);
   const { currentLote } = useLote();
   const { settings } = useSettings();
 
@@ -87,6 +89,17 @@ const ConsumptionPage = () => {
         
         // --- FETCH CONSUMPTION DATA ---
         const consumptionRecords = await consumoService.getConsumosByLote(currentLote.lote_id);
+        
+        // --- FETCH LIVING BIRD COUNT (accounting for mortality) ---
+        // Get ALL mortality from lote start date, not just last 14 days
+        const loteStartDate = currentLote.fecha_ingreso; // Use lote's actual start date
+        const mortalityData = await mortalidadService.getResumenMortalidad(
+          currentLote.lote_id,
+          loteStartDate,
+          todayStr
+        );
+        const currentLivingBirds = mortalityData.cantidadRestante;
+        setLivingBirdCount(currentLivingBirds);
         // --- PROCESS DAILY CONSUMPTION DATA ---
         const dailyConsumption = consumptionRecords.reduce((acc: Record<string, ConsumptionData>, record: Consumo) => {
           const date = new Date(record.fecha_hora);
@@ -175,6 +188,22 @@ const ConsumptionPage = () => {
         const todayWeekday = today.toLocaleDateString('es-ES', { weekday: 'short' });
         const todayKey = `${todayWeekday} ${todayDateString}`;
         const todayData = processedDailyData.find((day: ConsumptionData) => day.date === todayKey) || { electricity: 0, water: 0 };
+        
+        // Get today's raw records for accurate electricity calculation
+        const todaysRecords = consumptionRecords.filter(record => {
+          const recordDate = new Date(record.fecha_hora);
+          return getLocalDateString(recordDate) === todayStr;
+        });
+        
+        // If no kWh data exists in any record, use a placeholder calculation
+        // This suggests the database doesn't have the kWh column yet
+        const hasAnyKwh = consumptionRecords.some(r => r.kwh != null && r.kwh !== undefined);
+        console.log('Has any kWh data:', hasAnyKwh);
+        
+        if (!hasAnyKwh) {
+          console.warn('No kWh data found in consumption records. Database may not have kWh column yet.');
+        }
+        
         const avgElectricity = processedDailyData.length > 0 
           ? processedDailyData.reduce((sum: number, day: ConsumptionData) => sum + day.electricity, 0) / processedDailyData.length 
           : 0;
@@ -182,7 +211,7 @@ const ConsumptionPage = () => {
           ? processedDailyData.reduce((sum: number, day: ConsumptionData) => sum + day.water, 0) / processedDailyData.length 
           : 0;
         
-        const birdCount = currentLote.cantidad_inicial || 1;
+        const birdCount = currentLivingBirds || 1; // Use living bird count instead of initial
         const electricityPerBird = (todayData.electricity / birdCount) * 1000; // Wh per bird
         const waterPerBird = todayData.water / birdCount;
         
@@ -193,8 +222,10 @@ const ConsumptionPage = () => {
         const hourlyRate = avgElectricity / 24;
         
         // --- SET STATS ---
+        // Use raw calculation for today instead of processed daily data to avoid any aggregation issues
+        const rawTodayElectricity = todaysRecords.reduce((sum, r) => sum + (r.kwh || 0), 0);
         setStats({
-          todayElectricity: Math.round(todayData.electricity),
+          todayElectricity: Math.round(rawTodayElectricity),
           todayWater: Math.round(todayData.water),
           avgElectricity: Math.round(avgElectricity),
           avgWater: Math.round(avgWater),
@@ -507,7 +538,6 @@ const ConsumptionPage = () => {
                 <TableHead>Electricidad (kWh)</TableHead>
                 <TableHead>Agua (L)</TableHead>
                 <TableHead>Costo Eléctrico (€)</TableHead>
-                <TableHead>L Agua / Ave</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -517,7 +547,6 @@ const ConsumptionPage = () => {
                   <TableCell>{day.electricity}</TableCell>
                   <TableCell>{day.water}</TableCell>
                   <TableCell>{(day.electricity * settings.electricityRate).toFixed(2)}</TableCell>
-                  <TableCell>{(day.water / (currentLote?.cantidad_inicial || 1)).toFixed(2)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
