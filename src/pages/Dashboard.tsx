@@ -14,6 +14,7 @@ import { consumoService } from '@/lib/services/consumoService';
 import { mortalidadService } from '@/lib/services/mortalidadService';
 import { crecimientoService } from '@/lib/services/crecimientoService';
 import { loteService } from '@/lib/services/loteService';
+import { chicken_weight } from '@/lib/gompertz';
 
 // Helpers
 const getAvg = (arr, key) => {
@@ -24,7 +25,8 @@ const getAvg = (arr, key) => {
 
 const Dashboard = () => {
   // State
-  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [hasData, setHasData] = useState(false);
   const [stats, setStats] = useState({
     temperature: { value: '0.0', trend: 0 },
     water: { value: '0', trend: 0 },
@@ -40,11 +42,14 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchStats = async () => {
       if (!currentLote) {
-        setIsLoading(false);
+        setIsInitialLoading(false);
         return;
       }
       
-      setIsLoading(true);
+      // Only show loading screen on initial load when there's no data
+      if (!hasData) {
+        setIsInitialLoading(true);
+      }
       try {
         // Base dates
         const today = new Date();
@@ -111,11 +116,8 @@ const Dashboard = () => {
         const mortalityTrend = yesterdayMortality ? ((todayMortality - yesterdayMortality) / yesterdayMortality) * 100 : 0;
 
         // --- PRODUCTIVE EFFICIENCY ---
-        const growthRate = 0.15;
         const dayDiff = Math.floor((today.getTime() - new Date(currentLote.fecha_ingreso).getTime()) / (1000 * 60 * 60 * 24)) + 1;
-        const maxWeight = 2800;
-        const midpoint = 20;
-        const idealWeight = maxWeight / (1 + Math.exp(-growthRate * (dayDiff - midpoint)));
+        const idealWeight = chicken_weight(dayDiff);
         const weightEfficiency = (latestWeight / idealWeight) * 100;
         const survivalRate = ((currentLote.cantidad_inicial - todayMortality) / currentLote.cantidad_inicial) * 100;
         const efficiency = (survivalRate * weightEfficiency) / 100;
@@ -131,10 +133,13 @@ const Dashboard = () => {
           power: { value: Math.round(todayPower).toString(), trend: -powerTrend },
           efficiency: { value: efficiency.toFixed(1), trend: efficiencyTrend }
         });
+        
+        // Mark that we have data now
+        setHasData(true);
       } catch (error) {
         console.error('Error fetching dashboard stats:', error);
       } finally {
-        setIsLoading(false);
+        setIsInitialLoading(false);
       }
     };
     fetchStats();
@@ -145,7 +150,7 @@ const Dashboard = () => {
   // Render
   return (
     <>
-      {isLoading && <PageLoader message="Cargando datos del dashboard..." />}
+      {isInitialLoading && <PageLoader message="Cargando datos del dashboard..." />}
       <div className="space-y-6">
       <div className="flex items-center justify-between">
       <h1 className="text-2xl font-bold tracking-tight">Panel de Control</h1>

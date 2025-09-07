@@ -20,7 +20,8 @@ interface EnvironmentalData {
 }
 
 const EnvironmentalPage = () => {
-  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [hasData, setHasData] = useState(false);
   const [temperatureData, setTemperatureData] = useState<EnvironmentalData[]>([]);
   const [humidityData, setHumidityData] = useState<EnvironmentalData[]>([]);
   const [co2Data, setCo2Data] = useState<EnvironmentalData[]>([]);
@@ -31,11 +32,14 @@ const EnvironmentalPage = () => {
   useEffect(() => {
     const fetchEnvData = async () => {
       if (!currentLote) {
-        setIsLoading(false);
+        setIsInitialLoading(false);
         return;
       }
       
-      setIsLoading(true);
+      // Only show loading screen on initial load when there's no data
+      if (!hasData) {
+        setIsInitialLoading(true);
+      }
       try {
         // Base dates - following Dashboard pattern
         const today = new Date();
@@ -89,10 +93,13 @@ const EnvironmentalPage = () => {
         setHumidityData(processedData.humidity || []);
         setCo2Data(processedData.co2 || []);
         setNh3Data(processedData.nh3 || []);
+        
+        // Mark that we have data now
+        setHasData(true);
       } catch (error) {
         console.error('Error fetching environmental data:', error);
       } finally {
-        setIsLoading(false);
+        setIsInitialLoading(false);
       }
     };
     
@@ -103,7 +110,7 @@ const EnvironmentalPage = () => {
   
   return (
     <>
-      {isLoading && <PageLoader message="Cargando datos ambientales..." />}
+      {isInitialLoading && <PageLoader message="Cargando datos ambientales..." />}
       <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Ambiente</h1>

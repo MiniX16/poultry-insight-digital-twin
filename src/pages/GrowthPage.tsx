@@ -10,6 +10,7 @@ import PageLoader from '@/components/ui/page-loader';
 import { useSettings } from '@/context/SettingsContext';
 import { crecimientoService } from '@/lib/services/crecimientoService';
 import { polloService } from '@/lib/services/polloService';
+import { chicken_weight } from '@/lib/gompertz';
 import type { Database } from '@/lib/database.types';
 
 type Crecimiento = Database['public']['Tables']['crecimiento']['Row'];
@@ -30,7 +31,8 @@ interface WeightDistribution {
 
 const GrowthPage = () => {
   // State
-  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [hasData, setHasData] = useState(false);
   const [growthData, setGrowthData] = useState<GrowthData[]>([]);
   const [weightDistribution, setWeightDistribution] = useState<WeightDistribution[]>([]);
   const [stats, setStats] = useState({
@@ -47,47 +49,92 @@ const GrowthPage = () => {
   useEffect(() => {
     const fetchData = async () => {
       if (!currentLote) {
-        setIsLoading(false);
+        setIsInitialLoading(false);
         return;
       }
       
-      setIsLoading(true);
+      // Only show loading screen on initial load when there's no data
+      if (!hasData) {
+        setIsInitialLoading(true);
+      }
       
       try {
         // --- FETCH GROWTH RECORDS ---
         const growthRecords = await crecimientoService.getCrecimientosByLote(currentLote.lote_id);
+        
+        // --- CALCULATE DATE RANGE ---
+        const startDate = new Date(currentLote.fecha_ingreso);
+        const today = new Date();
+        const daysSinceStart = Math.floor((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        
+        // Ensure we show at least the actual days elapsed or a minimum of 42 days (standard broiler cycle)
+        const totalDays = Math.max(daysSinceStart, 42);
+        
+        console.log('Growth curve debug:', {
+          startDate: startDate.toISOString(),
+          today: today.toISOString(),
+          daysSinceStart,
+          totalDays,
+          growthRecordsCount: growthRecords.length
+        });
+        
+        // --- CREATE COMPLETE IDEAL WEIGHT CURVE ---
+        // Generate ideal weights for every day from start to current date
+        const idealWeightCurve = [];
+        for (let day = 1; day <= totalDays; day++) {
+          const currentDate = new Date(startDate);
+          currentDate.setDate(startDate.getDate() + day - 1);
           
-        // --- PROCESS GROWTH DATA ---
-        const processedGrowthData = growthRecords.map((record: Crecimiento) => {
-          const recordDate = new Date(record.fecha);
-          const startDate = new Date(currentLote.fecha_ingreso);
-          const dayDiff = Math.floor((recordDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-          // Calculate ideal weight based on standard growth curve
-          const maxWeight = 2800;
-          const growthRate = 0.15;
-          const midpoint = 20;
-          const idealWeight = maxWeight / (1 + Math.exp(-growthRate * (dayDiff - midpoint)));
-          // Calculate daily gain
-          const prevRecord = growthRecords.find((r: Crecimiento) => {
-            const rDate = new Date(r.fecha);
-            const rDayDiff = Math.floor((rDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-            return rDayDiff === dayDiff - 1;
+          idealWeightCurve.push({
+            day,
+            date: currentDate.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }),
+            ideal: Math.round(chicken_weight(day)),
+            actual: null,
+            gain: 0
           });
-
-          const dailyGain = prevRecord 
-            ? record.peso_promedio - prevRecord.peso_promedio
-            : record.peso_promedio;
-
+        }
+        
+        // --- PROCESS ACTUAL GROWTH RECORDS ---
+        // Map actual measurements to corresponding days
+        const actualMeasurements = new Map();
+        growthRecords.forEach((record: Crecimiento) => {
+          const recordDate = new Date(record.fecha);
+          const dayDiff = Math.floor((recordDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+          actualMeasurements.set(dayDiff, record);
+        });
+        
+        // --- MERGE IDEAL AND ACTUAL DATA ---
+        const processedGrowthData = idealWeightCurve.map((idealPoint, index) => {
+          const actualRecord = actualMeasurements.get(idealPoint.day);
+          
+          // Calculate daily gain if we have actual data
+          let dailyGain = 0;
+          if (actualRecord && index > 0) {
+            const prevActualRecord = actualMeasurements.get(idealPoint.day - 1);
+            if (prevActualRecord) {
+              dailyGain = actualRecord.peso_promedio - prevActualRecord.peso_promedio;
+            } else {
+              dailyGain = actualRecord.peso_promedio;
+            }
+          }
+          
           return {
-            day: dayDiff,
-            date: recordDate.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }),
-            ideal: Math.round(idealWeight),
-            actual: Math.round(record.peso_promedio),
-            gain: Math.round(dailyGain),
+            day: idealPoint.day,
+            date: idealPoint.date,
+            ideal: idealPoint.ideal,
+            actual: actualRecord ? Math.round(actualRecord.peso_promedio) : null,
+            gain: actualRecord ? Math.round(dailyGain) : 0,
           };
         });
 
-        const sortedGrowthData = processedGrowthData.sort((a, b) => a.day - b.day);
+        const sortedGrowthData = processedGrowthData;
+        
+        console.log('Final growth data:', {
+          totalPoints: sortedGrowthData.length,
+          firstPoint: sortedGrowthData[0],
+          lastPoint: sortedGrowthData[sortedGrowthData.length - 1],
+          pointsWithActual: sortedGrowthData.filter(p => p.actual !== null).length
+        });
         
         // --- SET GROWTH DATA ---
         setGrowthData(sortedGrowthData);
@@ -123,17 +170,23 @@ const GrowthPage = () => {
           const coefficientOfVariation = (standardDeviation / avgWeight) * 100;
           
           // --- CALCULATE STATS ---
-          const currentWeight = sortedGrowthData[sortedGrowthData.length - 1]?.actual || 0;
-          const last7Days = sortedGrowthData.slice(-7);
-          const avgDailyGain = last7Days.length > 0 
-            ? last7Days.reduce((sum, day) => sum + day.gain, 0) / last7Days.length 
+          // Find the most recent actual measurement
+          const recentActualData = sortedGrowthData.slice().reverse().find(day => day.actual !== null);
+          const currentWeight = recentActualData?.actual || 0;
+          
+          // Get days with actual measurements for calculations
+          const daysWithActual = sortedGrowthData.filter(day => day.actual !== null);
+          const last7DaysWithActual = daysWithActual.slice(-7);
+          
+          const avgDailyGain = last7DaysWithActual.length > 0 
+            ? last7DaysWithActual.reduce((sum, day) => sum + day.gain, 0) / last7DaysWithActual.length 
             : 0;
           
-          const weeklyGain = last7Days.length >= 2 
-            ? last7Days[last7Days.length - 1].actual - last7Days[0].actual 
+          const weeklyGain = last7DaysWithActual.length >= 2 
+            ? (last7DaysWithActual[last7DaysWithActual.length - 1].actual || 0) - (last7DaysWithActual[0].actual || 0)
             : 0;
-          const weeklyIdealGain = last7Days.length >= 2
-            ? last7Days[last7Days.length - 1].ideal - last7Days[0].ideal
+          const weeklyIdealGain = last7DaysWithActual.length >= 2
+            ? last7DaysWithActual[last7DaysWithActual.length - 1].ideal - last7DaysWithActual[0].ideal
             : 1;
           const weeklyGrowthRate = weeklyIdealGain > 0 
             ? ((weeklyGain - weeklyIdealGain) / weeklyIdealGain) * 100 
@@ -150,10 +203,16 @@ const GrowthPage = () => {
           setWeightDistribution([]);
           
           // Calculate basic stats without individual chicken data
-          const currentWeight = sortedGrowthData[sortedGrowthData.length - 1]?.actual || 0;
-          const last7Days = sortedGrowthData.slice(-7);
-          const avgDailyGain = last7Days.length > 0 
-            ? last7Days.reduce((sum, day) => sum + day.gain, 0) / last7Days.length 
+          // Find the most recent actual measurement
+          const recentActualData = sortedGrowthData.slice().reverse().find(day => day.actual !== null);
+          const currentWeight = recentActualData?.actual || 0;
+          
+          // Get days with actual measurements for calculations
+          const daysWithActual = sortedGrowthData.filter(day => day.actual !== null);
+          const last7DaysWithActual = daysWithActual.slice(-7);
+          
+          const avgDailyGain = last7DaysWithActual.length > 0 
+            ? last7DaysWithActual.reduce((sum, day) => sum + day.gain, 0) / last7DaysWithActual.length 
             : 0;
             
           setStats({
@@ -163,10 +222,12 @@ const GrowthPage = () => {
             weeklyGrowthRate: 0
           });
         }
+        // Mark that we have data now
+        setHasData(true);
       } catch (error) {
         console.error('Error fetching growth data:', error);
       } finally {
-        setIsLoading(false);
+        setIsInitialLoading(false);
       }
     };
 
@@ -177,7 +238,7 @@ const GrowthPage = () => {
   
   return (
     <>
-      {isLoading && <PageLoader message="Cargando datos de crecimiento..." />}
+      {isInitialLoading && <PageLoader message="Cargando datos de crecimiento..." />}
       <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Crecimiento</h1>
@@ -194,8 +255,14 @@ const GrowthPage = () => {
             <div className="flex flex-col items-center">
               <span className="text-3xl font-bold text-farm-green">{stats.currentWeight} g</span>
               <span className="text-sm text-muted-foreground mt-1">
-                {growthData[growthData.length - 1]?.actual > growthData[growthData.length - 1]?.ideal ? '+' : ''}
-                {(growthData[growthData.length - 1]?.actual || 0) - (growthData[growthData.length - 1]?.ideal || 0)} g vs estándar
+                {(() => {
+                  const recentActualData = growthData.slice().reverse().find(day => day.actual !== null);
+                  if (recentActualData) {
+                    const diff = recentActualData.actual - recentActualData.ideal;
+                    return `${diff > 0 ? '+' : ''}${diff} g vs estándar`;
+                  }
+                  return 'Sin datos recientes';
+                })()}
               </span>
             </div>
           </CardContent>
@@ -286,7 +353,7 @@ const GrowthPage = () => {
           <CardContent>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={growthData.slice(-7)} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                <BarChart data={growthData.filter(day => day.actual !== null).slice(-7)} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" label={{ value: 'Fecha', position: 'insideBottom', offset: -5 }} />
                   <YAxis />
@@ -344,30 +411,29 @@ const GrowthPage = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {growthData.slice(growthData.length - 14, growthData.length).map((day) => {
-                  const date = new Date();
-                  date.setDate(date.getDate() - (growthData.length - day.day));
-                  const diffPercent = ((day.actual - day.ideal) / day.ideal * 100).toFixed(1);
-                  // Convert diffPercent string to number for comparison
-                  const diffPercentNum = parseFloat(diffPercent);
-                  
-                  return (
-                    <TableRow key={day.day}>
-                      <TableCell className="font-medium">{day.day}</TableCell>
-                      <TableCell>
-                        {date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })}
-                      </TableCell>
-                      <TableCell>{day.actual}</TableCell>
-                      <TableCell>{day.ideal}</TableCell>
-                      <TableCell className={
-                        diffPercentNum > 0 ? 'text-green-600' : diffPercentNum < 0 ? 'text-red-600' : ''
-                      }>
-                        {diffPercentNum > 0 ? '+' : ''}{diffPercent}%
-                      </TableCell>
-                      <TableCell>{day.gain}</TableCell>
-                    </TableRow>
-                  );
-                })}
+                {growthData
+                  .filter(day => day.actual !== null)
+                  .slice(-14)
+                  .map((day) => {
+                    const diffPercent = (((day.actual || 0) - day.ideal) / day.ideal * 100).toFixed(1);
+                    // Convert diffPercent string to number for comparison
+                    const diffPercentNum = parseFloat(diffPercent);
+                    
+                    return (
+                      <TableRow key={day.day}>
+                        <TableCell className="font-medium">{day.day}</TableCell>
+                        <TableCell>{day.date}</TableCell>
+                        <TableCell>{day.actual}</TableCell>
+                        <TableCell>{day.ideal}</TableCell>
+                        <TableCell className={
+                          diffPercentNum > 0 ? 'text-green-600' : diffPercentNum < 0 ? 'text-red-600' : ''
+                        }>
+                          {diffPercentNum > 0 ? '+' : ''}{diffPercent}%
+                        </TableCell>
+                        <TableCell>{day.gain}</TableCell>
+                      </TableRow>
+                    );
+                  })}
               </TableBody>
             </Table>
           </CardContent>

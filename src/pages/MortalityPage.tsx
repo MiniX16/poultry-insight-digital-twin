@@ -28,7 +28,8 @@ interface CauseData {
 
 const MortalityPage = () => {
   // State
-  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [hasData, setHasData] = useState(false);
   const [mortalityData, setMortalityData] = useState<MortalityData[]>([]);
   const [causeData, setCauseData] = useState<CauseData[]>([]);
   const [stats, setStats] = useState({
@@ -45,11 +46,14 @@ const MortalityPage = () => {
   useEffect(() => {
     const fetchMortalityData = async () => {
       if (!currentLote) {
-        setIsLoading(false);
+        setIsInitialLoading(false);
         return;
       }
       
-      setIsLoading(true);
+      // Only show loading screen on initial load when there's no data
+      if (!hasData) {
+        setIsInitialLoading(true);
+      }
       
       try {
         // --- DATE RANGES ---
@@ -127,10 +131,13 @@ const MortalityPage = () => {
           },
           viability: currentViability
         });
+        
+        // Mark that we have data now
+        setHasData(true);
       } catch (error) {
         console.error('Error fetching mortality data:', error);
       } finally {
-        setIsLoading(false);
+        setIsInitialLoading(false);
       }
     };
     
@@ -142,7 +149,7 @@ const MortalityPage = () => {
   
   return (
     <>
-      {isLoading && <PageLoader message="Cargando datos de mortalidad..." />}
+      {isInitialLoading && <PageLoader message="Cargando datos de mortalidad..." />}
       <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Mortandad</h1>

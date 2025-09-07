@@ -36,7 +36,8 @@ interface ConsumptionBreakdown {
 
 const ConsumptionPage = () => {
   // State
-  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [hasData, setHasData] = useState(false);
   const [hourlyData, setHourlyData] = useState<HourlyData[]>([]);
   const [dailyData, setDailyData] = useState<ConsumptionData[]>([]);
   const [electricBreakdown, setElectricBreakdown] = useState<ConsumptionBreakdown[]>([]);
@@ -59,11 +60,14 @@ const ConsumptionPage = () => {
   useEffect(() => {
     const fetchConsumptionData = async () => {
       if (!currentLote) {
-        setIsLoading(false);
+        setIsInitialLoading(false);
         return;
       }
       
-      setIsLoading(true);
+      // Only show loading screen on initial load when there's no data
+      if (!hasData) {
+        setIsInitialLoading(true);
+      }
       
       try {
         // --- DATE RANGES ---
@@ -200,10 +204,13 @@ const ConsumptionPage = () => {
           totalCost: Math.round(totalCost * 100) / 100,
           hourlyRate: Math.round(hourlyRate * 100) / 100
         });
+        
+        // Mark that we have data now
+        setHasData(true);
       } catch (error) {
         console.error('Error fetching consumption data:', error);
       } finally {
-        setIsLoading(false);
+        setIsInitialLoading(false);
       }
     };
     
@@ -215,7 +222,7 @@ const ConsumptionPage = () => {
   
   return (
     <>
-      {isLoading && <PageLoader message="Cargando datos de consumo..." />}
+      {isInitialLoading && <PageLoader message="Cargando datos de consumo..." />}
       <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Consumos</h1>

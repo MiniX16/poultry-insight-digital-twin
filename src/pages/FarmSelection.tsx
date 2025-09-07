@@ -54,6 +54,7 @@ const FarmSelection: React.FC = () => {
     navigate('/');
   };
 
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">

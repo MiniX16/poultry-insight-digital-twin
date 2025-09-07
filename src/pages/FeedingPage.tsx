@@ -37,7 +37,8 @@ const feedComposition = [
 
 const FeedingPage = () => {
   // State
-  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [hasData, setHasData] = useState(false);
   const [feedingData, setFeedingData] = useState<FeedingData[]>([]);
   const [hourlyData, setHourlyData] = useState<HourlyData[]>([]);
   const [stats, setStats] = useState({
@@ -54,11 +55,14 @@ const FeedingPage = () => {
   useEffect(() => {
     const fetchFeedingData = async () => {
       if (!currentLote) {
-        setIsLoading(false);
+        setIsInitialLoading(false);
         return;
       }
       
-      setIsLoading(true);
+      // Only show loading screen on initial load when there's no data
+      if (!hasData) {
+        setIsInitialLoading(true);
+      }
       
       try {
         // --- DATE RANGES ---
@@ -179,10 +183,13 @@ const FeedingPage = () => {
           },
           waterRatio
         });
+        
+        // Mark that we have data now
+        setHasData(true);
       } catch (error) {
         console.error('Error fetching feeding data:', error);
       } finally {
-        setIsLoading(false);
+        setIsInitialLoading(false);
       }
     };
     
@@ -193,7 +200,7 @@ const FeedingPage = () => {
 
   return (
     <>
-      {isLoading && <PageLoader message="Cargando datos de alimentación..." />}
+      {isInitialLoading && <PageLoader message="Cargando datos de alimentación..." />}
       <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Alimentación</h1>
