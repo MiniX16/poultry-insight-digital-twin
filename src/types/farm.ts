@@ -2,7 +2,7 @@ export interface Farm {
   granja_id: number;
   nombre: string;
   ubicacion?: string;
-  descripcion?: string;
+  capacidad: number;
   usuario_id: number;
   created_at?: string;
   updated_at?: string;

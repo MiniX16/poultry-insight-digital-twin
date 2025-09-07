@@ -151,9 +151,9 @@ export const crecimientoService = {
     };
   },
 
-  // Obtener últimos crecimientos de lotes activos
-  async getUltimosCrecimientosPorLote() {
-    const { data, error } = await supabase
+  // Obtener últimos crecimientos de lotes activos filtrado por granja
+  async getUltimosCrecimientosPorLote(granjaId?: number) {
+    let query = supabase
       .from('crecimiento')
       .select(`
         *,
@@ -161,11 +161,18 @@ export const crecimientoService = {
           lote_id,
           codigo,
           estado,
-          fecha_ingreso
+          fecha_ingreso,
+          granja_id
         )
       `)
       .eq('lote.estado', 'activo')
       .order('fecha', { ascending: false });
+
+    if (granjaId) {
+      query = query.eq('lote.granja_id', granjaId);
+    }
+    
+    const { data, error } = await query;
     
     if (error) throw error;
     
@@ -183,6 +190,7 @@ export const crecimientoService = {
         codigo: string;
         estado: string;
         fecha_ingreso: string;
+        granja_id: number;
       };
     })[];
   },

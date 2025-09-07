@@ -10,48 +10,23 @@ export const loteService = {
   async getAllLotes() {
     const { data, error } = await supabase
       .from('lote')
-      .select(`
-        *,
-        granja:granja_id(
-          granja_id,
-          nombre
-        )
-      `)
+      .select('*')
       .order('fecha_ingreso', { ascending: false });
     
     if (error) throw error;
-    return data as (Lote & { granja: { granja_id: number; nombre: string } | null })[];
+    return data as Lote[];
   },
 
   // Obtener un lote por ID
   async getLoteById(id: number) {
     const { data, error } = await supabase
       .from('lote')
-      .select(`
-        *,
-        granja:granja_id(
-          granja_id,
-          nombre,
-          capacidad,
-          ubicacion,
-          estado,
-          area
-        )
-      `)
+      .select('*')
       .eq('lote_id', id)
       .single();
     
     if (error) throw error;
-    return data as Lote & {
-      granja: {
-        granja_id: number;
-        nombre: string;
-        capacidad: number;
-        ubicacion: string;
-        estado: string;
-        area: number;
-      } | null;
-    };
+    return data as Lote;
   },
 
   // Obtener lotes por granja
@@ -106,17 +81,11 @@ export const loteService = {
   async getLotesActivos() {
     const { data, error } = await supabase
       .from('lote')
-      .select(`
-        *,
-        granja:granja_id(
-          granja_id,
-          nombre
-        )
-      `)
+      .select('*')
       .eq('estado', 'activo')
       .order('fecha_ingreso', { ascending: false });
     
     if (error) throw error;
-    return data as (Lote & { granja: { granja_id: number; nombre: string } | null })[];
+    return data as Lote[];
   }
 }; 

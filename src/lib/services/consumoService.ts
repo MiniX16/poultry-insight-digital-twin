@@ -170,26 +170,33 @@ export const consumoService = {
     };
   },
 
-  // Obtener últimos consumos de todos los lotes activos
-  async getUltimosConsumosPorLote() {
-    const { data, error } = await supabase
+  // Obtener últimos consumos de lotes activos por granja
+  async getUltimosConsumosPorLote(granjaId?: number) {
+    let query = supabase
       .from('consumo')
       .select(`
         *,
         lote:lote_id(
           lote_id,
           codigo,
-          estado
+          estado,
+          granja_id
         )
       `)
       .eq('lote.estado', 'activo')
-      .order('fecha_hora', { ascending: false });
+      .order('fecha', { ascending: false });
+
+    if (granjaId) {
+      query = query.eq('lote.granja_id', granjaId);
+    }
+    
+    const { data, error } = await query;
     
     if (error) throw error;
     
     // Agrupar por lote y obtener el último registro de cada uno
     const ultimosConsumos = data.reduce((acc, curr) => {
-      if (!acc[curr.lote_id] || new Date(curr.fecha_hora) > new Date(acc[curr.lote_id].fecha_hora)) {
+      if (!acc[curr.lote_id] || new Date(curr.fecha) > new Date(acc[curr.lote_id].fecha)) {
         acc[curr.lote_id] = curr;
       }
       return acc;
@@ -200,6 +207,7 @@ export const consumoService = {
         lote_id: number;
         codigo: string;
         estado: string;
+        granja_id: number;
       };
     })[];
   }

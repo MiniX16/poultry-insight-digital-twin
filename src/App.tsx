@@ -23,6 +23,7 @@ import MortalityPage from "./pages/MortalityPage";
 import GrowthPage from "./pages/GrowthPage";
 import ConsumptionPage from "./pages/ConsumptionPage";
 import DigitalTwinPage from "./pages/DigitalTwinPage";
+import DataEntry from "./components/data-entry/DataEntry";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -97,6 +98,11 @@ const AppContent = () => {
               <Route path="/digital-twin" element={
                 <ProtectedRoute>
                   <DigitalTwinPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/data-entry" element={
+                <ProtectedRoute>
+                  <DataEntry />
                 </ProtectedRoute>
               } />
             </Route>
