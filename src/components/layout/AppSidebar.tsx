@@ -21,7 +21,8 @@ import {
   Timer,
   PowerIcon,
   Battery,
-  ArrowDown
+  ArrowDown,
+  Plus
 } from "lucide-react";
 import { useLocation } from 'react-router-dom';
 
@@ -39,6 +40,10 @@ export function AppSidebar() {
     { icon: Droplets, label: "Gemelo Digital", path: "/digital-twin" }
   ];
 
+  const dataEntryItems = [
+    { icon: Plus, label: "Entrada de Datos", path: "/data-entry" }
+  ];
+
   const isActive = (path: string) => currentPath === path;
 
   return (
@@ -49,6 +54,24 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item) => (
+                <SidebarMenuItem key={item.path}>
+                  <SidebarMenuButton asChild tooltip={item.label} isActive={isActive(item.path)}>
+                    <NavLink to={item.path}>
+                      <item.icon />
+                      <span>{item.label}</span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Gestión de Datos</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {dataEntryItems.map((item) => (
                 <SidebarMenuItem key={item.path}>
                   <SidebarMenuButton asChild tooltip={item.label} isActive={isActive(item.path)}>
                     <NavLink to={item.path}>

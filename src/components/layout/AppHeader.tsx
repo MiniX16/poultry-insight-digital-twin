@@ -6,9 +6,11 @@ import NotificationPanel from "@/components/NotificationPanel";
 import UserMenu from "@/components/UserMenu";
 import { useFarm } from "@/context/FarmContext";
 import { Building2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const AppHeader = () => {
   const { selectedFarm } = useFarm();
+  const navigate = useNavigate();
 
   return (
     <header className="h-16 border-b bg-background flex items-center justify-between px-4">
@@ -19,7 +21,11 @@ const AppHeader = () => {
           {selectedFarm && (
             <>
               <div className="h-4 w-px bg-border"></div>
-              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+              <div 
+                className="flex items-center space-x-2 text-sm text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+                onClick={() => navigate('/farm-selection')}
+                title="Cambiar granja"
+              >
                 <Building2 className="h-4 w-4" />
                 <span className="font-medium">{selectedFarm.nombre}</span>
               </div>
