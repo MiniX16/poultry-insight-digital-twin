@@ -14,16 +14,12 @@ const RootRedirect: React.FC = () => {
     if (!isLoading && !farmLoading) {
       initialLoad.current = false;
       if (isAuthenticated) {
-        if (selectedFarm) {
-          // User is authenticated and has selected a farm, redirect to dashboard
-          navigate('/dashboard');
-        } else {
-          // User is authenticated but hasn't selected a farm, redirect to farm selection
-          navigate('/farm-selection');
-        }
+        // Always redirect authenticated users to farm selection page
+        // This ensures users can always see and change their farm selection
+        navigate('/farm-selection');
       }
     }
-  }, [isAuthenticated, selectedFarm, isLoading, farmLoading, navigate]);
+  }, [isAuthenticated, isLoading, farmLoading, navigate]);
 
   // Show loading only on initial page load
   if (initialLoad.current && (isLoading || farmLoading)) {

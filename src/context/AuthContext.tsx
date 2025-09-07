@@ -70,6 +70,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(result.user);
         localStorage.setItem('auth-user', JSON.stringify(result.user));
         localStorage.setItem('auth-token', result.token || 'authenticated');
+        // Clear any previously selected farm to ensure user goes through farm selection
+        localStorage.removeItem('selected-farm');
         setIsLoading(false);
         return { success: true };
       } else {
@@ -95,6 +97,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(result.user);
         localStorage.setItem('auth-user', JSON.stringify(result.user));
         localStorage.setItem('auth-token', result.token || 'authenticated');
+        // Clear any previously selected farm to ensure user goes through farm selection
+        localStorage.removeItem('selected-farm');
         return { success: true };
       } else {
         return { success: false, error: result.error || 'Error al crear la cuenta' };
