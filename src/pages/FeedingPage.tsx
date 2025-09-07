@@ -44,7 +44,6 @@ const FeedingPage = () => {
   const [stats, setStats] = useState({
     dailyAvg: { consumption: 0, perBird: 0 },
     conversionRate: 0,
-    inventory: { amount: 0, daysLeft: 0 },
     waterRatio: 0
   });
   const { currentLote } = useLote();
@@ -177,10 +176,6 @@ const FeedingPage = () => {
             perBird: Math.round(perBirdConsumption)
           },
           conversionRate: Number(feedConversionRate.toFixed(2)),
-          inventory: {
-            amount: 6.4, // This should come from inventory table
-            daysLeft: 7.8 // This should be calculated based on consumption rate
-          },
           waterRatio
         });
         
@@ -207,7 +202,7 @@ const FeedingPage = () => {
         <LoteSelector />
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Consumo Diario</CardTitle>
@@ -230,19 +225,6 @@ const FeedingPage = () => {
             <div className="flex flex-col items-center">
               <span className="text-3xl font-bold text-farm-blue">{stats.conversionRate.toFixed(2)}</span>
               <span className="text-sm text-muted-foreground mt-1">kg alimento / kg ganancia</span>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Inventario Actual</CardTitle>
-            <CardDescription>Silos disponibles</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col items-center">
-              <span className="text-3xl font-bold text-farm-orange">{stats.inventory.amount.toFixed(1)} ton</span>
-              <span className="text-sm text-muted-foreground mt-1">{stats.inventory.daysLeft.toFixed(1)} días restantes</span>
             </div>
           </CardContent>
         </Card>
