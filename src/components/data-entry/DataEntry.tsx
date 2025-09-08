@@ -28,10 +28,9 @@ import { crecimientoService } from '@/lib/services/crecimientoService';
 import { medicionAmbientalService } from '@/lib/services/medicionAmbientalService';
 import { mortalidadService } from '@/lib/services/mortalidadService';
 
-type TableType = 'granja' | 'lote' | 'pollo' | 'consumo' | 'alimentacion' | 'crecimiento' | 'medicion_ambiental' | 'mortalidad';
+type TableType = 'lote' | 'pollo' | 'consumo' | 'alimentacion' | 'crecimiento' | 'medicion_ambiental' | 'mortalidad';
 
 const tables = [
-  { value: 'granja', label: 'Granja', icon: Building2, description: 'Registrar nuevas granjas' },
   { value: 'lote', label: 'Lote', icon: Bird, description: 'Crear lotes de pollos' },
   { value: 'pollo', label: 'Pollo', icon: Bird, description: 'Registrar pollos individuales' },
   { value: 'consumo', label: 'Consumo', icon: Droplets, description: 'Registrar datos de consumo' },
@@ -42,7 +41,7 @@ const tables = [
 ] as const;
 
 export function DataEntry() {
-  const [selectedTable, setSelectedTable] = useState<TableType>('granja');
+  const [selectedTable, setSelectedTable] = useState<TableType>('lote');
   const [formData, setFormData] = useState<any>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [granjas, setGranjas] = useState<any[]>([]);
@@ -78,37 +77,10 @@ export function DataEntry() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate required fields for granja
-    if (selectedTable === 'granja') {
-      if (!formData.nombre || formData.nombre.trim() === '') {
-        toast({
-          title: "Campo requerido",
-          description: "El nombre de la granja es obligatorio.",
-          variant: "destructive",
-        });
-        return;
-      }
-      if (!formData.capacidad || formData.capacidad <= 0) {
-        toast({
-          title: "Campo requerido",
-          description: "La capacidad de la granja es obligatoria y debe ser mayor a 0.",
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-
     setIsSubmitting(true);
     
     try {
       switch (selectedTable) {
-        case 'granja':
-          const granjaData = {
-            ...formData,
-            usuario_id: user?.usuario_id
-          };
-          await granjaService.createGranja(granjaData);
-          break;
         case 'lote':
           await loteService.createLote(formData);
           break;
@@ -181,42 +153,6 @@ export function DataEntry() {
 
   const renderFormFields = () => {
     switch (selectedTable) {
-      case 'granja':
-        return (
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="nombre">Nombre *</Label>
-              <Input
-                id="nombre"
-                value={formData.nombre || ''}
-                onChange={(e) => handleInputChange('nombre', e.target.value)}
-                placeholder="Nombre de la granja"
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="ubicacion">Ubicación</Label>
-              <Input
-                id="ubicacion"
-                value={formData.ubicacion || ''}
-                onChange={(e) => handleInputChange('ubicacion', e.target.value)}
-                placeholder="Ubicación de la granja"
-              />
-            </div>
-            <div>
-              <Label htmlFor="capacidad">Capacidad *</Label>
-              <Input
-                id="capacidad"
-                type="number"
-                value={formData.capacidad || ''}
-                onChange={(e) => handleInputChange('capacidad', parseInt(e.target.value))}
-                placeholder="Capacidad total de aves"
-                required
-              />
-            </div>
-          </div>
-        );
-
       case 'lote':
         return (
           <div className="space-y-4">
