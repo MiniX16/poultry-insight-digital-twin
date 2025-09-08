@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { 
   Sidebar, 
@@ -22,13 +22,16 @@ import {
   PowerIcon,
   Battery,
   ArrowDown,
-  Plus
+  Plus,
+  Radio
 } from "lucide-react";
 import { useLocation } from 'react-router-dom';
+import { NewSensorDialog } from '@/components/sensors/NewSensorDialog';
 
 export function AppSidebar() {
   const location = useLocation();
   const currentPath = location.pathname;
+  const [isSensorDialogOpen, setIsSensorDialogOpen] = useState(false);
 
   const menuItems = [
     { icon: Gauge, label: "Dashboard", path: "/dashboard" },
@@ -41,7 +44,8 @@ export function AppSidebar() {
   ];
 
   const dataEntryItems = [
-    { icon: Plus, label: "Entrada de Datos", path: "/data-entry" }
+    { icon: Plus, label: "Entrada de Datos", path: "/data-entry", type: 'navigation' },
+    { icon: Radio, label: "Nuevo Sensor", action: () => setIsSensorDialogOpen(true), type: 'action' }
   ];
 
   const isActive = (path: string) => currentPath === path;
@@ -71,20 +75,32 @@ export function AppSidebar() {
           <SidebarGroupLabel>Gestión de Datos</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {dataEntryItems.map((item) => (
-                <SidebarMenuItem key={item.path}>
-                  <SidebarMenuButton asChild tooltip={item.label} isActive={isActive(item.path)}>
-                    <NavLink to={item.path}>
+              {dataEntryItems.map((item, index) => (
+                <SidebarMenuItem key={item.path || index}>
+                  {item.type === 'navigation' ? (
+                    <SidebarMenuButton asChild tooltip={item.label} isActive={isActive(item.path!)}>
+                      <NavLink to={item.path!}>
+                        <item.icon />
+                        <span>{item.label}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  ) : (
+                    <SidebarMenuButton tooltip={item.label} onClick={item.action}>
                       <item.icon />
                       <span>{item.label}</span>
-                    </NavLink>
-                  </SidebarMenuButton>
+                    </SidebarMenuButton>
+                  )}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      
+      <NewSensorDialog 
+        open={isSensorDialogOpen} 
+        onOpenChange={setIsSensorDialogOpen} 
+      />
     </Sidebar>
   );
 }
