@@ -9,6 +9,7 @@ import { Loader2, MapPin, Building2, Plus } from 'lucide-react';
 import { granjaService } from '@/lib/services/granjaService';
 import { Farm } from '@/types/farm';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { NewFarmDialog } from '@/components/farm/NewFarmDialog';
 
 const FarmSelection: React.FC = () => {
   const { user, logout } = useAuth();
@@ -18,6 +19,7 @@ const FarmSelection: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [localSelectedFarm, setLocalSelectedFarm] = useState<Farm | null>(null);
+  const [isNewFarmDialogOpen, setIsNewFarmDialogOpen] = useState(false);
 
   useEffect(() => {
     const loadUserFarms = async () => {
@@ -41,6 +43,21 @@ const FarmSelection: React.FC = () => {
 
     loadUserFarms();
   }, [user, navigate]);
+
+  const refreshFarms = async () => {
+    if (!user) return;
+    
+    try {
+      setIsLoading(true);
+      const userFarms = await granjaService.getGranjasByUsuario(user.usuario_id);
+      setFarms(userFarms);
+    } catch (err) {
+      console.error('Error loading farms:', err);
+      setError('Error al cargar las granjas. Por favor, intenta de nuevo.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSelectFarm = (farm: Farm) => {
     setLocalSelectedFarm(farm);
@@ -78,9 +95,19 @@ const FarmSelection: React.FC = () => {
                 Bienvenido, {user?.nombre}. Selecciona la granja que deseas gestionar.
               </p>
             </div>
-            <Button variant="ghost" onClick={handleLogout}>
-              Cerrar Sesión
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setIsNewFarmDialogOpen(true)}
+                className="flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Nueva Granja
+              </Button>
+              <Button variant="ghost" onClick={handleLogout}>
+                Cerrar Sesión
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -100,9 +127,16 @@ const FarmSelection: React.FC = () => {
               No tienes granjas registradas
             </h2>
             <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-              Parece que aún no tienes granjas asociadas a tu cuenta. Contacta al administrador para que te asigne una granja.
+              Parece que aún no tienes granjas registradas. Crea tu primera granja para comenzar a gestionar tus operaciones avícolas.
             </p>
             <div className="flex justify-center space-x-4">
+              <Button 
+                onClick={() => setIsNewFarmDialogOpen(true)}
+                className="flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Crear Primera Granja
+              </Button>
               <Button variant="outline" onClick={handleLogout}>
                 Cerrar Sesión
               </Button>
@@ -170,6 +204,12 @@ const FarmSelection: React.FC = () => {
           </>
         )}
       </div>
+      
+      <NewFarmDialog 
+        open={isNewFarmDialogOpen}
+        onOpenChange={setIsNewFarmDialogOpen}
+        onFarmCreated={refreshFarms}
+      />
     </div>
   );
 };
