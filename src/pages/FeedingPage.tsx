@@ -11,6 +11,7 @@ import { useSettings } from '@/context/SettingsContext';
 import { consumoService } from '@/lib/services/consumoService';
 import { alimentacionService } from '@/lib/services/alimentacionService';
 import { crecimientoService } from '@/lib/services/crecimientoService';
+import { mortalidadService } from '@/lib/services/mortalidadService';
 
 interface FeedingData {
   date: string;
@@ -76,9 +77,17 @@ const FeedingPage = () => {
         const todayStr = getLocalDateString(today);
         const sevenDaysAgoStr = getLocalDateString(sevenDaysAgo);
         // --- FETCH DATA ---
+        const loteStartDate = currentLote.fecha_ingreso; // Start from lote beginning for conversion calculation
+        
+        // Get feeding data for last 7 days (for display) and cumulative (for conversion)
         const { registros: alimentacionData } = await alimentacionService.getResumenAlimentacion(
           currentLote.lote_id,
           sevenDaysAgoStr,
+          todayStr
+        );
+        const { registros: alimentacionCumulative } = await alimentacionService.getResumenAlimentacion(
+          currentLote.lote_id,
+          loteStartDate,
           todayStr
         );
         const { registros: consumoData } = await consumoService.getResumenConsumo(
@@ -94,8 +103,9 @@ const FeedingPage = () => {
           const dateStr = getLocalDateString(date);
           // --- DAILY CONSUMPTION CALCULATION ---
           const dayConsumos = consumoData.filter(c => {
-            const consumoDate = new Date(c.fecha_hora);
-            return getLocalDateString(consumoDate) === dateStr;
+            // Extract date part only to avoid timezone issues
+            const consumoDateStr = c.fecha_hora.split('T')[0];
+            return consumoDateStr === dateStr;
           });
           const dayTotals = dayConsumos.reduce((acc, curr) => ({
             cantidad_alimento: acc.cantidad_alimento + curr.cantidad_alimento,
@@ -119,24 +129,62 @@ const FeedingPage = () => {
         const avgConsumption = totalConsumption / dailyData.length;
         const perBirdConsumption = avgConsumption / currentLote.cantidad_inicial * 1000; // en gramos
         const perBirdConsumptionKg = perBirdConsumption / 1000; // convertir a kg
-        // --- GROWTH DATA FOR CONVERSION RATE ---
-        const yesterday = new Date(today);
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = getLocalDateString(yesterday);
-        const yesterdayGrowth = await crecimientoService.getCrecimientosByLote(currentLote.lote_id);
-        const yesterdayData = yesterdayGrowth.find(g => g.fecha === yesterdayStr);
-        const feedConversionRate = yesterdayData
-          ? perBirdConsumptionKg / yesterdayData.ganancia_diaria
-          : 0;
+        
+        // --- FEED CONVERSION CALCULATION ---
+        // Get mortality data to calculate living birds
+        const mortalityData = await mortalidadService.getResumenMortalidad(
+          currentLote.lote_id,
+          loteStartDate,
+          todayStr
+        );
+        const livingBirds = mortalityData.cantidadRestante;
+        
+        // Get growth data for weight calculation
+        const allGrowthData = await crecimientoService.getCrecimientosByLote(currentLote.lote_id);
+        console.log('All growth data:', allGrowthData);
+        console.log('Living birds:', livingBirds, 'Initial:', currentLote.cantidad_inicial);
+        
+        // Calculate total cumulative feed consumption
+        const totalCumulativeFeed = alimentacionCumulative.reduce((sum, record) => sum + record.cantidad_suministrada, 0);
+        console.log('Total cumulative feed:', totalCumulativeFeed);
+        
+        let feedConversionRate = 0;
+        if (allGrowthData.length >= 2 && livingBirds > 0) {
+          // Use first and last growth measurements for total weight gain
+          const firstWeight = allGrowthData[0].peso_promedio / 1000; // Convert to kg
+          const lastWeight = allGrowthData[allGrowthData.length - 1].peso_promedio / 1000; // Convert to kg
+          
+          // Calculate total weight gained per bird
+          const weightGainPerBird = lastWeight - firstWeight;
+          
+          console.log('Feed conversion calculation:', { 
+            firstWeight, 
+            lastWeight, 
+            weightGainPerBird,
+            totalCumulativeFeed,
+            livingBirds,
+            initialBirds: currentLote.cantidad_inicial
+          });
+          
+          if (weightGainPerBird > 0) {
+            // Feed Conversion Rate = Total Feed Consumed / (Current Living Birds × Weight Gain per Bird)
+            // We use current living birds because that's the weight we can actually measure
+            const totalWeightGained = livingBirds * weightGainPerBird;
+            feedConversionRate = totalCumulativeFeed / totalWeightGained;
+          }
+        }
+        
+        console.log('Feed conversion rate:', feedConversionRate);
         
         // --- HOURLY FEEDING PATTERN ---
         // First try today, if no data, use the most recent day with data
-        let feedingsForHourly = alimentacionData.filter(a => a.fecha === todayStr);
+        let feedingsForHourly = alimentacionData.filter(a => a.fecha.startsWith(todayStr));
         if (feedingsForHourly.length === 0 && alimentacionData.length > 0) {
           // Get the most recent date with feeding data
           const mostRecentDate = alimentacionData.reduce((latest, current) => 
             current.fecha > latest ? current.fecha : latest, alimentacionData[0].fecha);
-          feedingsForHourly = alimentacionData.filter(a => a.fecha === mostRecentDate);
+          const mostRecentDateStr = mostRecentDate.split('T')[0];
+          feedingsForHourly = alimentacionData.filter(a => a.fecha.startsWith(mostRecentDateStr));
         }
         console.log('Feedings for hourly chart:', feedingsForHourly);
         
@@ -144,14 +192,8 @@ const FeedingPage = () => {
         const hourlyConsumption: HourlyData[] = Array.from({ length: 24 }, (_, hour) => {
           const hourStr = `${hour.toString().padStart(2, '0')}:00`;
           const hourFeedings = feedingsForHourly.filter(f => {
-            // Handle TIME field properly - hora_suministro might be in format "HH:MM:SS"
-            let feedingHour = 0;
-            if (typeof f.hora_suministro === 'string') {
-              feedingHour = parseInt(f.hora_suministro.split(':')[0]);
-            } else {
-              // If it's a Date object
-              feedingHour = new Date(f.hora_suministro).getHours();
-            }
+            // Extract hour from the fecha timestamp
+            const feedingHour = new Date(f.fecha).getHours();
             return feedingHour === hour;
           });
           const consumption = hourFeedings.reduce((sum, f) => sum + f.cantidad_suministrada, 0);

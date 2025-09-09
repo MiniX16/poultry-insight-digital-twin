@@ -390,10 +390,10 @@ export function DataEntry() {
               </Select>
             </div>
             <div>
-              <Label htmlFor="fecha">Fecha *</Label>
+              <Label htmlFor="fecha">Fecha y Hora *</Label>
               <Input
                 id="fecha"
-                type="date"
+                type="datetime-local"
                 value={formData.fecha || ''}
                 onChange={(e) => handleInputChange('fecha', e.target.value)}
                 required
@@ -418,16 +418,6 @@ export function DataEntry() {
                 value={formData.cantidad_suministrada || ''}
                 onChange={(e) => handleInputChange('cantidad_suministrada', parseFloat(e.target.value))}
                 placeholder="Kilogramos suministrados"
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="hora_suministro">Hora de Suministro *</Label>
-              <Input
-                id="hora_suministro"
-                type="time"
-                value={formData.hora_suministro || ''}
-                onChange={(e) => handleInputChange('hora_suministro', e.target.value)}
                 required
               />
             </div>

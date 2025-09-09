@@ -215,7 +215,6 @@ export type Database = {
           fecha: string
           tipo_alimento: string
           cantidad_suministrada: number
-          hora_suministro: string
           responsable: string
           created_at: string
           updated_at: string
@@ -226,7 +225,6 @@ export type Database = {
           fecha: string
           tipo_alimento: string
           cantidad_suministrada: number
-          hora_suministro: string
           responsable: string
           created_at?: string
           updated_at?: string
@@ -237,7 +235,6 @@ export type Database = {
           fecha?: string
           tipo_alimento?: string
           cantidad_suministrada?: number
-          hora_suministro?: string
           responsable?: string
           created_at?: string
           updated_at?: string

@@ -73,8 +73,9 @@ export const alimentacionService = {
       .from('alimentacion')
       .select('*')
       .eq('lote_id', loteId)
-      .eq('fecha', fecha)
-      .order('hora_suministro');
+      .gte('fecha', `${fecha}T00:00:00`)
+      .lt('fecha', `${fecha}T24:00:00`)
+      .order('fecha');
     
     if (error) throw error;
     return data as Alimentacion[];
@@ -122,8 +123,8 @@ export const alimentacionService = {
       .from('alimentacion')
       .select('*')
       .eq('lote_id', loteId)
-      .gte('fecha', fechaInicio)
-      .lte('fecha', fechaFin)
+      .gte('fecha', `${fechaInicio}T00:00:00`)
+      .lte('fecha', `${fechaFin}T23:59:59`)
       .order('fecha');
     
     if (error) throw error;
@@ -143,7 +144,7 @@ export const alimentacionService = {
       totalSuministrado: alimentaciones.reduce((sum, a) => sum + a.cantidad_suministrada, 0),
       promedioSuministroDiario: alimentaciones.length ? 
         alimentaciones.reduce((sum, a) => sum + a.cantidad_suministrada, 0) / 
-        [...new Set(alimentaciones.map(a => a.fecha))].length : 0,
+        [...new Set(alimentaciones.map(a => a.fecha.split('T')[0]))].length : 0,
       porTipoAlimento,
       registros: alimentaciones
     };
@@ -168,8 +169,8 @@ export const alimentacionService = {
     
     // Agrupar por lote y obtener el último registro de cada uno
     const ultimasAlimentaciones = data.reduce((acc, curr) => {
-      const key = `${curr.lote_id}_${curr.fecha}`;
-      if (!acc[key] || new Date(curr.hora_suministro) > new Date(acc[key].hora_suministro)) {
+      const key = `${curr.lote_id}_${curr.fecha.split('T')[0]}`;
+      if (!acc[key] || new Date(curr.fecha) > new Date(acc[key].fecha)) {
         acc[key] = curr;
       }
       return acc;

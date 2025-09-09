@@ -149,10 +149,12 @@ const ConsumptionPage = () => {
             return recordHour === hour;
           });
           
-          const totalUsage = hourConsumption.reduce((sum, record) => sum + (record.kwh || 0), 0);
+          const totalUsage = hourConsumption.length > 0 
+            ? hourConsumption.reduce((sum, record) => sum + (record.kwh || 0), 0)
+            : null;
           const avgTemp = hourMeasurements.length > 0 
             ? hourMeasurements.reduce((sum, record) => sum + record.temperatura, 0) / hourMeasurements.length 
-            : 0;
+            : null;
             
           return {
             hour: hourStr,
@@ -347,6 +349,7 @@ const ConsumptionPage = () => {
                         name="Consumo (kWh)" 
                         stroke="#8B5CF6" 
                         strokeWidth={2} 
+                        connectNulls={true}
                       />
                       <Line 
                         yAxisId="right"
@@ -355,6 +358,7 @@ const ConsumptionPage = () => {
                         name="Temperatura (°C)" 
                         stroke="#EF4444" 
                         strokeWidth={2} 
+                        connectNulls={true}
                       />
                     </LineChart>
                   </ResponsiveContainer>
