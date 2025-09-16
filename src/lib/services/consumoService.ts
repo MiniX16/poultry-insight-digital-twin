@@ -210,5 +210,28 @@ export const consumoService = {
         granja_id: number;
       };
     })[];
+  },
+
+  // Obtener los últimos 10 registros de consumo
+  async getLastTenConsumos() {
+    const { data, error } = await supabase
+      .from('consumo')
+      .select(`
+        *,
+        lote:lote_id(
+          lote_id,
+          codigo
+        )
+      `)
+      .order('fecha_hora', { ascending: false })
+      .limit(10);
+    
+    if (error) throw error;
+    return data as (Consumo & {
+      lote: {
+        lote_id: number;
+        codigo: string;
+      };
+    })[];
   }
 }; 

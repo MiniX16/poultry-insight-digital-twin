@@ -209,5 +209,28 @@ export const mortalidadService = {
       mortalidadDiaria: mortalidades,
       tendenciasSemanal: Object.values(porSemana)
     };
+  },
+
+  // Obtener los últimos 10 registros de mortalidad
+  async getLastTenMortalidades() {
+    const { data, error } = await supabase
+      .from('mortalidad')
+      .select(`
+        *,
+        lote:lote_id(
+          lote_id,
+          codigo
+        )
+      `)
+      .order('fecha', { ascending: false })
+      .limit(10);
+    
+    if (error) throw error;
+    return data as (Mortalidad & {
+      lote: {
+        lote_id: number;
+        codigo: string;
+      };
+    })[];
   }
 }; 

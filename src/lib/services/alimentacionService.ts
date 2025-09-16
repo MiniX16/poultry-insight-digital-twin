@@ -196,5 +196,28 @@ export const alimentacionService = {
     
     // Eliminar duplicados
     return [...new Set(data.map(a => a.tipo_alimento))];
+  },
+
+  // Obtener los últimos 10 registros de alimentación
+  async getLastTenAlimentaciones() {
+    const { data, error } = await supabase
+      .from('alimentacion')
+      .select(`
+        *,
+        lote:lote_id(
+          lote_id,
+          codigo
+        )
+      `)
+      .order('fecha', { ascending: false })
+      .limit(10);
+    
+    if (error) throw error;
+    return data as (Alimentacion & {
+      lote: {
+        lote_id: number;
+        codigo: string;
+      };
+    })[];
   }
 }; 

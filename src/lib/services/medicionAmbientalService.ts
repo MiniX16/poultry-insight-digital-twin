@@ -267,5 +267,28 @@ export const medicionAmbientalService = {
       alertas,
       timestamp: new Date().toISOString()
     };
+  },
+
+  // Obtener los últimos 10 registros de mediciones ambientales
+  async getLastTenMedicionesAmbientales() {
+    const { data, error } = await supabase
+      .from('medicion_ambiental')
+      .select(`
+        *,
+        lote:lote_id(
+          lote_id,
+          codigo
+        )
+      `)
+      .order('fecha_hora', { ascending: false })
+      .limit(10);
+    
+    if (error) throw error;
+    return data as (MedicionAmbiental & {
+      lote: {
+        lote_id: number;
+        codigo: string;
+      };
+    })[];
   }
 }; 

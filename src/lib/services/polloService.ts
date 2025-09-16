@@ -195,5 +195,28 @@ export const polloService = {
         peso: p.peso
       }))
     };
+  },
+
+  // Obtener los últimos 10 registros de pollos
+  async getLastTenPollos() {
+    const { data, error } = await supabase
+      .from('pollo')
+      .select(`
+        *,
+        lote:lote_id(
+          lote_id,
+          codigo
+        )
+      `)
+      .order('fecha_registro', { ascending: false })
+      .limit(10);
+    
+    if (error) throw error;
+    return data as (Pollo & {
+      lote: {
+        lote_id: number;
+        codigo: string;
+      };
+    })[];
   }
 }; 

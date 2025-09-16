@@ -87,5 +87,22 @@ export const loteService = {
     
     if (error) throw error;
     return data as Lote[];
+  },
+
+  // Obtener los últimos 10 lotes
+  async getLastTenLotes() {
+    const { data, error } = await supabase
+      .from('lote')
+      .select(`
+        *,
+        granja:granja_id(nombre)
+      `)
+      .order('fecha_ingreso', { ascending: false })
+      .limit(10);
+    
+    if (error) throw error;
+    return data as (Lote & {
+      granja: { nombre: string };
+    })[];
   }
 }; 

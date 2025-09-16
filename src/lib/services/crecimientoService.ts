@@ -239,5 +239,28 @@ export const crecimientoService = {
       proyeccion,
       confiabilidad: Math.min(100, (crecimientos.length / 10) * 100) // Confiabilidad basada en cantidad de mediciones
     };
+  },
+
+  // Obtener los últimos 10 registros de crecimiento
+  async getLastTenCrecimientos() {
+    const { data, error } = await supabase
+      .from('crecimiento')
+      .select(`
+        *,
+        lote:lote_id(
+          lote_id,
+          codigo
+        )
+      `)
+      .order('fecha', { ascending: false })
+      .limit(10);
+    
+    if (error) throw error;
+    return data as (Crecimiento & {
+      lote: {
+        lote_id: number;
+        codigo: string;
+      };
+    })[];
   }
 }; 
