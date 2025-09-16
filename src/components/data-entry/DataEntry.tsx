@@ -27,6 +27,7 @@ import { alimentacionService } from '@/lib/services/alimentacionService';
 import { crecimientoService } from '@/lib/services/crecimientoService';
 import { medicionAmbientalService } from '@/lib/services/medicionAmbientalService';
 import { mortalidadService } from '@/lib/services/mortalidadService';
+import { RecentRecordsTable } from './RecentRecordsTable';
 
 type TableType = 'lote' | 'pollo' | 'consumo' | 'alimentacion' | 'crecimiento' | 'medicion_ambiental' | 'mortalidad';
 
@@ -650,6 +651,12 @@ export function DataEntry() {
 
       {/* Content */}
       {renderForm()}
+
+      {/* Recent Records Table */}
+      <RecentRecordsTable 
+        tableType={selectedTable} 
+        title={tables.find(table => table.value === selectedTable)?.label || selectedTable}
+      />
     </div>
   );
 }
