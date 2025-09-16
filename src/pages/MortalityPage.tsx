@@ -3,7 +3,7 @@ import { useLote } from '@/context/LoteContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, ComposedChart } from 'recharts';
 import { ArrowDown } from 'lucide-react';
 import LoteSelector from '@/components/LoteSelector';
 import PageLoader from '@/components/ui/page-loader';
@@ -200,28 +200,48 @@ const MortalityPage = () => {
           <CardContent>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={mortalityData} margin={{ top: 5, right: 30, left: 20, bottom: 25 }}>
+                <ComposedChart data={mortalityData} margin={{ top: 5, right: 30, left: 20, bottom: 25 }}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" />
-                  <YAxis yAxisId="left" orientation="left" stroke="#EF4444" />
-                  <YAxis yAxisId="right" orientation="right" stroke="#8B5CF6" />
-                  <Tooltip />
-                  <Legend />
-                  <Bar
-                    yAxisId="left"
-                    dataKey="count"
-                    name="Aves"
-                    fill="#EF4444"
+                  <YAxis 
+                    yAxisId="left" 
+                    orientation="left" 
+                    stroke="#EF4444"
+                    label={{ value: 'Aves', angle: -90, position: 'insideLeft' }}
                   />
+                  <YAxis 
+                    yAxisId="right" 
+                    orientation="right" 
+                    stroke="#8B5CF6"
+                    label={{ value: 'Porcentaje (%)', angle: 90, position: 'insideRight' }}
+                  />
+                  <Tooltip 
+                    content={({ active, payload, label }) => {
+                      if (active && payload && payload.length > 0) {
+                        const data = payload[0].payload;
+                        return (
+                          <div className="bg-white p-3 border border-gray-300 rounded shadow-lg">
+                            <p className="font-medium">{`Fecha: ${label}`}</p>
+                            <p className="text-red-600">{`Aves: ${data.count}`}</p>
+                            <p className="text-purple-600">{`Porcentaje: ${data.percentage}%`}</p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Legend />
                   <Line 
                     yAxisId="right"
                     type="monotone" 
                     dataKey="percentage" 
                     name="Porcentaje (%)" 
                     stroke="#8B5CF6" 
-                    strokeWidth={2}
+                    strokeWidth={3}
+                    dot={{ fill: '#8B5CF6', strokeWidth: 2, r: 4 }}
+                    activeDot={{ r: 6, stroke: '#8B5CF6', strokeWidth: 2 }}
                   />
-                </LineChart>
+                </ComposedChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
